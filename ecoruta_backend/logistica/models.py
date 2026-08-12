@@ -15,6 +15,8 @@ class Jornada(models.Model):
     inicio_real = models.DateTimeField(null=True, blank=True, verbose_name="Inicio Real")
     fin_real = models.DateTimeField(null=True, blank=True, verbose_name="Fin Real")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente', verbose_name="Estado de la Jornada")
+    creado_en = models.DateTimeField(default=django.utils.timezone.now, verbose_name="Fecha de Creación")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     class Meta:
         verbose_name = "Jornada de Trabajo"

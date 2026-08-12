@@ -60,3 +60,35 @@ def sincronizar_puntos_lote(request):
         }, status=status.HTTP_201_CREATED)
     else:
         return Response({'detail': 'No se encontraron registros de GPS válidos para procesar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+@extend_schema(
+    summary="Datos de Monitoreo GPS en Vivo",
+    description="Devuelve el estado en tiempo real de los camiones activos en ruta y su última posición GPS.",
+    responses={200: dict}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def monitoreo_en_vivo(request):
+    """
+    Devuelve las jornadas activas, la última posición GPS de cada camión y la velocidad actual.
+    """
+    jornadas_activas = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').filter(estado='en_curso')
+    resultado = []
+    
+    for j in jornadas_activas:
+        ultimo_punto = j.puntos.order_by('-timestamp').first()
+        resultado.append({
+            'jornada_id': j.id,
+            'vehiculo': f"{j.vehiculo.marca} {j.vehiculo.modelo} ({j.vehiculo.placa})",
+            'placa': j.vehiculo.placa,
+            'ruta': j.ruta.nombre,
+            'zona': j.ruta.zona,
+            'chofer': j.chofer.usuario.get_full_name() or j.chofer.usuario.username,
+            'estado': j.estado,
+            'latitud': float(ultimo_punto.latitud) if ultimo_punto else None,
+            'longitud': float(ultimo_punto.longitud) if ultimo_punto else None,
+            'velocidad_kmh': ultimo_punto.velocidad_kmh if ultimo_punto else 0,
+            'ultima_actualizacion': ultimo_punto.timestamp.strftime('%Y-%m-%d %H:%M:%S') if ultimo_punto else None,
+        })
+        
+    return Response({'camiones_activos': resultado, 'total_activos': len(resultado)})

@@ -14,6 +14,8 @@ class Vehiculo(models.Model):
     capacidad_toneladas = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Capacidad (Toneladas)")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo', verbose_name="Estado Operativo")
     rendimiento_km_por_litro = models.DecimalField(max_digits=5, decimal_places=2, default=5.0, verbose_name="Rendimiento (Km/L)")
+    creado_en = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     class Meta:
         verbose_name = "Vehículo"
@@ -27,6 +29,8 @@ class Ruta(models.Model):
     descripcion = models.TextField(blank=True, verbose_name="Descripción")
     zona = models.CharField(max_length=100, blank=True, verbose_name="Zona / Sector")
     distancia_estimada_km = models.DecimalField(max_digits=6, decimal_places=2, default=10.0, verbose_name="Distancia Estimada (Km)")
+    creado_en = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     class Meta:
         verbose_name = "Ruta Ecológica"
@@ -39,6 +43,8 @@ class Chofer(models.Model):
     usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='perfil_chofer', verbose_name="Cuenta de Usuario")
     licencia = models.CharField(max_length=50, unique=True, verbose_name="Nº de Licencia")
     telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono de Contacto")
+    creado_en = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     class Meta:
         verbose_name = "Conductor / Chofer"
@@ -54,6 +60,8 @@ class RegistroCombustible(models.Model):
     costo_total = models.DecimalField(max_digits=8, decimal_places=2, verbose_name="Costo Total ($)")
     kilometraje_actual = models.IntegerField(default=0, verbose_name="Kilometraje Actual")
     comprobante = models.ImageField(upload_to='comprobantes_combustible/', blank=True, null=True, verbose_name="Foto Comprobante")
+    creado_en = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     class Meta:
         verbose_name = "Registro de Combustible"
