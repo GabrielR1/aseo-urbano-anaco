@@ -4,6 +4,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.authtoken.views import obtain_auth_token
 
+admin.site.site_header = "Plataforma EcoRuta"
+admin.site.site_title = "Panel de Administración EcoRuta"
+admin.site.index_title = "Gestión del Sistema EcoRuta"
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
