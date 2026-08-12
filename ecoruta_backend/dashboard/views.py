@@ -14,6 +14,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
+from administracion.models import Vehiculo, Ruta, RegistroCombustible, Chofer, RegistroAuditoria
+
 @login_required
 def dashboard_home(request):
     vehiculos_activos = Vehiculo.objects.filter(estado='activo').count()
@@ -34,6 +36,14 @@ def rutas_gestion(request):
         'rutas': rutas
     }
     return render(request, 'dashboard/rutas.html', context)
+
+@login_required
+def auditoria_listado(request):
+    logs = RegistroAuditoria.objects.select_related('usuario').all().order_by('-timestamp')[:100]
+    context = {
+        'logs': logs
+    }
+    return render(request, 'dashboard/auditoria.html', context)
 
 @login_required
 def conductores_gestion(request):

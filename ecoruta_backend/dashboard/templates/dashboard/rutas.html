@@ -43,7 +43,11 @@
                         {{ r.descripcion|default:"Sin descripción" }}
                     </td>
                     <td style="padding: 16px; text-align: center;">
-                        <div style="display: flex; gap: 8px; justify-content: center;">
+                        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                            <button onclick="abrirModalEficienciaEco('{{ r.nombre|escapejs }}', '{{ r.distancia_estimada_km }}')" 
+                                    style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: #34d399; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;" title="Cálculo de Eficiencia Ecológica y CO2">
+                                <i class="fa-solid fa-leaf"></i> Eficiencia Eco
+                            </button>
                             <button onclick="abrirModalEditarRuta({{ r.id }}, '{{ r.nombre|escapejs }}', '{{ r.zona|escapejs }}', '{{ r.distancia_estimada_km }}', '{{ r.descripcion|escapejs }}')" 
                                     style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--accent-blue); color: #60a5fa; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;" title="Modificar Ruta">
                                 <i class="fa-solid fa-pen-to-square"></i> Modificar
@@ -148,7 +152,52 @@
                 </div>
             </form>
         `;
-        openModal('Confirmar Eliminación', content);
+    function abrirModalEficienciaEco(nombre, distancia) {
+        var dist = parseFloat(distancia) || 10.0;
+        var litros = (dist / 5.0).toFixed(2);
+        var costo = (litros * 0.50).toFixed(2);
+        var co2 = (dist * 0.264).toFixed(2);
+        var co2Ahorrado = (co2 * 0.15).toFixed(2);
+
+        var content = `
+            <div style="text-align: left; line-height: 1.6;">
+                <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid var(--accent-green); padding: 16px; border-radius: 14px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 6px 0; color: #34d399;"><i class="fa-solid fa-seedling"></i> Análisis Ecológico: ${nombre}</h4>
+                    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Estimación de impacto ambiental y consumo proyectado</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                        <span style="font-size: 12px; color: var(--text-muted);">Distancia Total</span>
+                        <h3 style="margin: 4px 0 0 0; color: var(--text-main);">${dist} Km</h3>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                        <span style="font-size: 12px; color: var(--text-muted);">Combustible Est.</span>
+                        <h3 style="margin: 4px 0 0 0; color: #34d399;">${litros} Lts</h3>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                        <span style="font-size: 12px; color: var(--text-muted);">Costo Est. ($)</span>
+                        <h3 style="margin: 4px 0 0 0; color: #60a5fa;">$ ${costo}</h3>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                        <span style="font-size: 12px; color: var(--text-muted);">Emisiones CO2</span>
+                        <h3 style="margin: 4px 0 0 0; color: #f87171;">${co2} Kg</h3>
+                    </div>
+                </div>
+
+                <div style="background: rgba(59, 130, 246, 0.15); border: 1px solid var(--accent-blue); padding: 14px; border-radius: 12px; margin-bottom: 20px;">
+                    <strong style="color: #60a5fa;"><i class="fa-solid fa-earth-americas"></i> Reducción de Huella de Carbono:</strong>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color: var(--text-main);">
+                        Con la optimización de trayectorias EcoRuta se proyecta un ahorro estimado de <strong style="color: #34d399;">${co2Ahorrado} Kg de CO2</strong> en cada ciclo de recolección.
+                    </p>
+                </div>
+
+                <button onclick="closeModal()" style="width:100%; padding: 12px; background: var(--accent-green); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">
+                    Entendido
+                </button>
+            </div>
+        `;
+        openModal('Optimización Ecológica de Ruta', content);
     }
 </script>
 {% endblock %}

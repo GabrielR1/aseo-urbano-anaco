@@ -69,3 +69,22 @@ class RegistroCombustible(models.Model):
 
     def __str__(self):
         return f"Recarga {self.vehiculo.placa} - {self.fecha.strftime('%Y-%m-%d')}"
+
+class RegistroAuditoria(models.Model):
+    ACCION_CHOICES = [
+        ('CREAR', 'Guardar / Crear'),
+        ('MODIFICAR', 'Modificar / Actualizar'),
+        ('ELIMINAR', 'Eliminar / Borrar'),
+    ]
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario")
+    accion = models.CharField(max_length=20, choices=ACCION_CHOICES, verbose_name="Acción Realizada")
+    tabla_afectada = models.CharField(max_length=50, verbose_name="Entidad / Tabla")
+    detalles = models.TextField(verbose_name="Detalles del Cambio")
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True, verbose_name="Fecha y Hora")
+
+    class Meta:
+        verbose_name = "Registro de Auditoría"
+        verbose_name_plural = "Bitácora de Auditoría del Sistema"
+
+    def __str__(self):
+        return f"[{self.accion}] {self.tabla_afectada} por {self.usuario} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"

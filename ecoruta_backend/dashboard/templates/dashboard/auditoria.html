@@ -1,0 +1,74 @@
+{% extends 'dashboard/base.html' %}
+
+{% block page_title %}Bitácora de Auditoría y Trazabilidad{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="margin-bottom: 24px;">
+    <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div>
+            <h3 style="margin: 0; color: var(--text-main);">Historial de Auditoría de Cambios</h3>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px;">Registro de trazabilidad sobre quién creó, modificó o eliminó información en el sistema EcoRuta</p>
+        </div>
+        <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: #34d399; padding: 8px 16px; border-radius: 12px; font-weight: 600; font-size: 14px;">
+            <i class="fa-solid fa-shield-halved" style="margin-right: 6px;"></i> Auditoría Activa
+        </div>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--glass-border);">
+                    <th style="padding: 14px; color: var(--text-muted);">Fecha / Hora</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Usuario</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Acción</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Entidad Afectada</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Detalles del Cambio</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 14px; white-space: nowrap; font-size: 14px; color: var(--text-muted);">
+                        <i class="fa-solid fa-clock" style="margin-right: 6px;"></i>{{ log.timestamp|date:"d/m/Y H:i:s" }}
+                    </td>
+                    <td style="padding: 14px; font-weight: 700; color: var(--text-main);">
+                        <i class="fa-solid fa-user" style="margin-right: 6px; color: var(--accent-blue);"></i>
+                        {{ log.usuario.username|default:"Sistema / Anónimo" }}
+                    </td>
+                    <td style="padding: 14px;">
+                        {% if log.accion == 'CREAR' %}
+                        <span style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: #34d399; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;">
+                            <i class="fa-solid fa-plus"></i> CREAR
+                        </span>
+                        {% elif log.accion == 'MODIFICAR' %}
+                        <span style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--accent-blue); color: #60a5fa; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;">
+                            <i class="fa-solid fa-pen"></i> MODIFICAR
+                        </span>
+                        {% else %}
+                        <span style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;">
+                            <i class="fa-solid fa-trash"></i> ELIMINAR
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 14px; font-weight: 600; color: var(--accent-green);">
+                        {{ log.tabla_afectada }}
+                    </td>
+                    <td style="padding: 14px; color: var(--text-main); font-size: 14px;">
+                        {{ log.detalles }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="padding: 32px; text-align: center; color: var(--text-muted);">
+                        <i class="fa-solid fa-clock-rotate-left" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
+                        No hay eventos registrados en la bitácora de auditoría aún. Las operaciones CRUD registrarán acciones automáticamente aquí.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

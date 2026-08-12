@@ -48,3 +48,17 @@ class LogisticaAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total_activos'], 1)
         self.assertEqual(response.data['camiones_activos'][0]['placa'], 'API-001')
+
+    def test_optimizar_ruta_api(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(f'/api/logistica/rutas/{self.ruta.id}/optimizar/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('emision_co2_kg', response.data)
+        self.assertIn('litros_estimados', response.data)
+
+    def test_notificaciones_chofer(self):
+        self.client.force_authenticate(user=self.user)
+        Jornada.objects.create(vehiculo=self.vehiculo, ruta=self.ruta, chofer=self.chofer, estado='pendiente')
+        response = self.client.get('/api/logistica/notificaciones/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total'], 1)

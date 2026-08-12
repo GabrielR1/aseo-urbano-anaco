@@ -1,16 +1,28 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Ruta, Vehiculo, Chofer
+from .models import Ruta, Vehiculo, Chofer, RegistroAuditoria
 from security.models import Usuario
 from .forms import RutaForm, VehiculoForm
+
+def registrar_auditoria(usuario, accion, tabla, detalles):
+    try:
+        RegistroAuditoria.objects.create(
+            usuario=usuario if usuario and usuario.is_authenticated else None,
+            accion=accion,
+            tabla_afectada=tabla,
+            detalles=detalles
+        )
+    except Exception as e:
+        pass
 
 @login_required
 def ruta_crear(request):
     if request.method == 'POST':
         form = RutaForm(request.POST)
         if form.is_valid():
-            form.save()
+            ruta = form.save()
+            registrar_auditoria(request.user, 'CREAR', 'Ruta Ecológica', f'Se creó la ruta "{ruta.nombre}" en la zona "{ruta.zona}"')
             messages.success(request, '¡Ruta ecológica guardada exitosamente!')
         else:
             messages.error(request, 'Error al guardar la ruta. Por favor verifica los datos.')
@@ -22,7 +34,8 @@ def ruta_editar(request, pk):
     if request.method == 'POST':
         form = RutaForm(request.POST, instance=ruta)
         if form.is_valid():
-            form.save()
+            ruta = form.save()
+            registrar_auditoria(request.user, 'MODIFICAR', 'Ruta Ecológica', f'Se modificaron los datos de la ruta "{ruta.nombre}"')
             messages.success(request, f'¡Ruta "{ruta.nombre}" modificada correctamente!')
         else:
             messages.error(request, 'Error al modificar la ruta.')
@@ -34,6 +47,7 @@ def ruta_eliminar(request, pk):
     if request.method == 'POST':
         nombre_ruta = ruta.nombre
         ruta.delete()
+        registrar_auditoria(request.user, 'ELIMINAR', 'Ruta Ecológica', f'Se eliminó la ruta "{nombre_ruta}"')
         messages.success(request, f'Ruta "{nombre_ruta}" eliminada con éxito.')
     return redirect('dashboard_rutas')
 
@@ -42,7 +56,8 @@ def vehiculo_crear(request):
     if request.method == 'POST':
         form = VehiculoForm(request.POST)
         if form.is_valid():
-            form.save()
+            vehiculo = form.save()
+            registrar_auditoria(request.user, 'CREAR', 'Vehículo de Flota', f'Se registró el vehículo placa "{vehiculo.placa}" ({vehiculo.marca})')
             messages.success(request, '¡Vehículo registrado exitosamente!')
         else:
             messages.error(request, 'Error al registrar el vehículo.')
@@ -54,7 +69,8 @@ def vehiculo_editar(request, pk):
     if request.method == 'POST':
         form = VehiculoForm(request.POST, instance=vehiculo)
         if form.is_valid():
-            form.save()
+            vehiculo = form.save()
+            registrar_auditoria(request.user, 'MODIFICAR', 'Vehículo de Flota', f'Se actualizaron los datos del vehículo "{vehiculo.placa}"')
             messages.success(request, f'¡Vehículo "{vehiculo.placa}" actualizado correctamente!')
         else:
             messages.error(request, 'Error al actualizar el vehículo.')
@@ -66,6 +82,7 @@ def vehiculo_eliminar(request, pk):
     if request.method == 'POST':
         placa = vehiculo.placa
         vehiculo.delete()
+        registrar_auditoria(request.user, 'ELIMINAR', 'Vehículo de Flota', f'Se eliminó el vehículo placa "{placa}"')
         messages.success(request, f'Vehículo "{placa}" eliminado con éxito.')
     return redirect('dashboard_recursos')
 
@@ -93,6 +110,7 @@ def chofer_crear(request):
                     rol=Usuario.CHOFER
                 )
                 Chofer.objects.create(usuario=user, licencia=licencia, telefono=telefono)
+                registrar_auditoria(request.user, 'CREAR', 'Conductor / Chofer', f'Se creó el perfil de chofer para el usuario "{username}"')
                 messages.success(request, f'¡Chofer/Conductor "{username}" registrado exitosamente!')
         else:
             messages.error(request, 'Por favor completa los campos requeridos de usuario y licencia.')
@@ -116,6 +134,7 @@ def chofer_editar(request, pk):
         user.last_name = last_name
         user.save()
 
+        registrar_auditoria(request.user, 'MODIFICAR', 'Conductor / Chofer', f'Se modificaron los datos del conductor "{user.username}"')
         messages.success(request, f'¡Datos del conductor "{user.username}" modificados con éxito!')
     return redirect('dashboard_conductores')
 
@@ -127,5 +146,6 @@ def chofer_eliminar(request, pk):
         user = chofer.usuario
         chofer.delete()
         user.delete()
+        registrar_auditoria(request.user, 'ELIMINAR', 'Conductor / Chofer', f'Se eliminó al conductor y usuario "{username}"')
         messages.success(request, f'Conductor "{username}" eliminado exitosamente.')
     return redirect('dashboard_conductores')

@@ -318,6 +318,9 @@
         <a href="{% url 'dashboard_recursos' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_recursos' %}active{% endif %}">
             <i class="fa-solid fa-gas-pump"></i> Gestión de Recursos
         </a>
+        <a href="{% url 'dashboard_auditoria' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_auditoria' %}active{% endif %}">
+            <i class="fa-solid fa-clock-rotate-left"></i> Bitácora de Auditoría
+        </a>
         <a href="/admin/" class="nav-item" target="_blank">
             <i class="fa-solid fa-user-shield"></i> Panel Admin
         </a>

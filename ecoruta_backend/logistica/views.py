@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 from .models import Jornada, PuntoGeolocalizacion, Incidencia
 from .serializers import JornadaSerializer, PuntoGeolocalizacionSerializer, IncidenciaSerializer
+from .optimizador import calcular_eficiencia_ecologica
+from administracion.models import Ruta
 
 class JornadaViewSet(viewsets.ModelViewSet):
     queryset = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer').all()
@@ -92,3 +94,45 @@ def monitoreo_en_vivo(request):
         })
         
     return Response({'camiones_activos': resultado, 'total_activos': len(resultado)})
+
+@extend_schema(
+    summary="Cálculo de Eficiencia Ecológica y CO2 de una Ruta",
+    description="Devuelve el consumo proyectado de litros, costo en USD y estimación de emisiones de CO2 reducidas.",
+    responses={200: dict}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def optimizar_ruta_api(request, pk):
+    try:
+        ruta = Ruta.objects.get(pk=pk)
+        analisis = calcular_eficiencia_ecologica(ruta.distancia_estimada_km)
+        analisis['ruta'] = ruta.nombre
+        analisis['zona'] = ruta.zona
+        return Response(analisis, status=status.HTTP_200_OK)
+    except Ruta.DoesNotExist:
+        return Response({'detail': 'Ruta no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+@extend_schema(
+    summary="Notificaciones y Alertas para Conductor",
+    description="Devuelve las notificaciones activas de jornadas asignadas para el chofer autenticado.",
+    responses={200: dict}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def notificaciones_chofer(request):
+    jornadas_pendientes = Jornada.objects.select_related('ruta', 'vehiculo').filter(
+        chofer__usuario=request.user,
+        estado='pendiente'
+    ).order_by('-fecha')
+    
+    notificaciones = []
+    for j in jornadas_pendientes:
+        notificaciones.append({
+            'id': j.id,
+            'titulo': '🌿 Nueva Jornada Asignada',
+            'mensaje': f"Se te ha asignado la ruta '{j.ruta.nombre}' ({j.ruta.zona}) en el vehículo {j.vehiculo.placa}.",
+            'fecha': j.fecha.strftime('%d/%m/%Y'),
+            'estado': j.estado
+        })
+        
+    return Response({'notificaciones': notificaciones, 'total': len(notificaciones)})
