@@ -1,0 +1,76 @@
+{% extends 'registration/base_auth.html' %}
+
+{% block title %}EcoRuta - Iniciar Sesión{% endblock %}
+{% block header %}EcoRuta{% endblock %}
+{% block subheader %}Inicia sesión en tu cuenta{% endblock %}
+
+{% block extra_head %}
+<style>
+    .password-container {
+        position: relative;
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: var(--text-muted);
+    }
+
+    .toggle-password:hover {
+        color: var(--text-main);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if form.errors %}
+<div class="error-message">
+    <i class="fa-solid fa-circle-exclamation"></i> Tu usuario y contraseña no coinciden. Inténtalo de nuevo.
+</div>
+{% endif %}
+
+<form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    
+    <div class="form-group">
+        <label for="id_username">Usuario</label>
+        <input type="text" name="username" class="form-control" autofocus required id="id_username">
+    </div>
+
+    <div class="form-group">
+        <label for="id_password">Contraseña</label>
+        <div class="password-container">
+            <input type="password" name="password" class="form-control" required id="id_password">
+            <i class="fa-solid fa-eye toggle-password" id="togglePassword"></i>
+        </div>
+    </div>
+
+    <button type="submit" class="btn-submit">Ingresar</button>
+    <input type="hidden" name="next" value="{{ next|default:'/dashboard/' }}">
+</form>
+
+<a href="{% url 'password_reset' %}" class="link-text">¿Olvidaste tu contraseña?</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const togglePassword = document.querySelector('#togglePassword');
+    const password = document.querySelector('#id_password');
+
+    togglePassword.addEventListener('click', function (e) {
+        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+        password.setAttribute('type', type);
+        
+        if (type === 'password') {
+            this.classList.remove('fa-eye-slash');
+            this.classList.add('fa-eye');
+        } else {
+            this.classList.remove('fa-eye');
+            this.classList.add('fa-eye-slash');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'dashboard/base.html' %}
+
+{% block page_title %}Monitoreo en Vivo de Rutas{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+    #map {
+        height: 600px;
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--glass-border);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="padding: 10px; margin-bottom: 20px;">
+    <div style="display: flex; gap: 20px; align-items: center; padding: 0 10px;">
+        <div><span style="display: inline-block; width: 12px; height: 12px; background: blue; border-radius: 50%; margin-right: 5px;"></span> Camiones Activos</div>
+        <div><span style="display: inline-block; width: 12px; height: 12px; background: red; border-radius: 50%; margin-right: 5px;"></span> Incidencias</div>
+        <div style="flex-grow: 1;"></div>
+        <div style="color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-clock-rotate-left"></i> Última actualización: hace un momento</div>
+    </div>
+</div>
+
+<div class="glass-card" style="padding: 0; overflow: hidden;">
+    <div id="map"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar el mapa en Anaco (Lat: 9.4389, Lng: -64.4589 aprox)
+        var map = L.map('map').setView([9.4389, -64.4589], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Simulación de un camión en ruta
+        var truckIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/819/819873.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+        });
+
+        var marker = L.marker([9.4389, -64.4589], {icon: truckIcon}).addTo(map);
+        marker.bindPopup("<b>Camión A7B-123</b><br>Ruta Centro<br>Chofer: Juan Pérez");
+
+        // Simulación de incidencia
+        var alertIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/564/564619.png',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+        });
+        var incidentMarker = L.marker([9.4450, -64.4600], {icon: alertIcon}).addTo(map);
+        incidentMarker.bindPopup("<b>Incidencia: Vía Cerrada</b><br>Hace 10 min");
+    });
+</script>
+{% endblock %}

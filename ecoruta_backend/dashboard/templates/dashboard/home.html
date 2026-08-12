@@ -1,0 +1,97 @@
+{% extends 'dashboard/base.html' %}
+
+{% block page_title %}Resumen Ejecutivo{% endblock %}
+
+{% block content %}
+<div class="grid-3">
+    <!-- Card 1 -->
+    <div class="glass-card" style="display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(16, 185, 129, 0.2); padding: 20px; border-radius: 50%; color: var(--accent-green);">
+            <i class="fa-solid fa-truck-moving fa-2x"></i>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Vehículos Activos</h3>
+            <p style="margin: 5px 0 0 0; font-size: 32px; font-weight: 700;">{{ vehiculos_activos }}</p>
+        </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="glass-card" style="display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(59, 130, 246, 0.2); padding: 20px; border-radius: 50%; color: var(--accent-blue);">
+            <i class="fa-solid fa-route fa-2x"></i>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Jornadas Hoy</h3>
+            <p style="margin: 5px 0 0 0; font-size: 32px; font-weight: 700;">{{ jornadas_hoy }}</p>
+        </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="glass-card" style="display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(239, 68, 68, 0.2); padding: 20px; border-radius: 50%; color: var(--accent-red);">
+            <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Incidencias</h3>
+            <p style="margin: 5px 0 0 0; font-size: 32px; font-weight: 700;">{{ incidencias_hoy }}</p>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+    <!-- Chart -->
+    <div class="glass-card">
+        <h3 style="margin-top: 0;">Efectividad Semanal (Estimada)</h3>
+        <canvas id="efectividadChart" height="100"></canvas>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="glass-card">
+        <h3 style="margin-top: 0;">Acciones Rápidas</h3>
+        <a href="{% url 'dashboard_itinerario' %}" style="display: block; padding: 15px; background: rgba(255,255,255,0.05); color: white; text-decoration: none; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--glass-border);">
+            <i class="fa-solid fa-calendar-plus" style="margin-right: 10px;"></i> Planificar Nueva Jornada
+        </a>
+        <a href="{% url 'dashboard_recursos' %}" style="display: block; padding: 15px; background: rgba(255,255,255,0.05); color: white; text-decoration: none; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--glass-border);">
+            <i class="fa-solid fa-gas-pump" style="margin-right: 10px;"></i> Registrar Combustible
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('efectividadChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+            datasets: [{
+                label: 'Toneladas Recolectadas',
+                data: [12, 19, 15, 17, 14, 20, 10], // Static data for prototype
+                backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                borderColor: 'rgba(16, 185, 129, 1)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8' }
+                }
+            },
+            plugins: {
+                legend: { labels: { color: '#fff' } }
+            }
+        }
+    });
+</script>
+{% endblock %}

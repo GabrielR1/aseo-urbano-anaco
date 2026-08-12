@@ -1,0 +1,28 @@
+# Python y Entorno Virtual
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de Base de Datos y Media local
+db.sqlite3
+media/
+*.sqlite3
+
+# IDEs y Editores
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Flutter / Dart
+ecoruta_frontend/.dart_tool/
+ecoruta_frontend/.idea/
+ecoruta_frontend/.pub/
+ecoruta_frontend/build/
+ecoruta_frontend/ios/Flutter/App.framework
+ecoruta_frontend/ios/Flutter/Flutter.framework
+ecoruta_frontend/ios/Flutter/Flutter.podspec
+ecoruta_frontend/ios/Runner.xcworkspace

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoRuta - Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #090d16;
+            --sidebar-bg: rgba(15, 23, 42, 0.85);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-green: #10b981;
+            --accent-green-dark: #059669;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --glass-border: rgba(16, 185, 129, 0.2);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 5% 5%, rgba(16, 185, 129, 0.18) 0%, transparent 450px),
+                radial-gradient(circle at 95% 95%, rgba(59, 130, 246, 0.15) 0%, transparent 500px);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 270px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            padding: 30px 0;
+            box-shadow: 5px 0 25px rgba(0, 0, 0, 0.4);
+            z-index: 20;
+        }
+
+        .sidebar-brand {
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 40px;
+            color: var(--accent-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand i {
+            font-size: 28px;
+            filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.6));
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+
+        .nav-item {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 4px 16px;
+            border-radius: 14px;
+            position: relative;
+        }
+
+        .nav-item:hover {
+            color: #ffffff;
+            background: rgba(16, 185, 129, 0.15);
+            transform: translateX(6px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+        }
+
+        .nav-item.active {
+            color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 40px 50px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(30, 41, 59, 0.6);
+            padding: 8px 18px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+
+        .user-profile:hover {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Interactive Dynamic Glass Cards with Superposition */
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 22px;
+            padding: 28px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            z-index: 10;
+            border-color: rgba(16, 185, 129, 0.4);
+            box-shadow: 0 22px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(16, 185, 129, 0.25);
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 28px;
+            margin-bottom: 36px;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(9, 13, 22, 0.8);
+            backdrop-filter: blur(16px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-box {
+            background: var(--sidebar-bg);
+            border: 1px solid var(--accent-green);
+            border-radius: 24px;
+            padding: 36px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 35px rgba(16, 185, 129, 0.3);
+            transform: translateY(30px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+
+        .modal-overlay.active .modal-box {
+            transform: translateY(0);
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6)); }
+            50% { transform: scale(1.1); filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.9)); }
+        }
+
+        .pulsing-badge {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: badgePulse 1.8s infinite;
+        }
+
+        @keyframes badgePulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--glass-border);
+            color: #ffffff;
+            border-radius: 12px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .alert {
+            padding: 14px 20px;
+            border-radius: 14px;
+            margin-bottom: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid var(--accent-green);
+            color: #34d399;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid var(--accent-red);
+            color: #f87171;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <i class="fa-solid fa-leaf"></i> EcoRuta
+        </div>
+        <a href="{% url 'dashboard_home' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_home' %}active{% endif %}">
+            <i class="fa-solid fa-chart-pie"></i> Resumen
+        </a>
+        <a href="{% url 'dashboard_rutas' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_rutas' %}active{% endif %}">
+            <i class="fa-solid fa-route"></i> Gestión de Rutas
+        </a>
+        <a href="{% url 'dashboard_conductores' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_conductores' %}active{% endif %}">
+            <i class="fa-solid fa-id-card"></i> Conductores / Personal
+        </a>
+        <a href="{% url 'dashboard_itinerario' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_itinerario' %}active{% endif %}">
+            <i class="fa-solid fa-calendar-alt"></i> Itinerario
+        </a>
+        <a href="{% url 'dashboard_mapa' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_mapa' %}active{% endif %}">
+            <i class="fa-solid fa-map-location-dot"></i> Monitoreo en Vivo
+        </a>
+        <a href="{% url 'dashboard_recursos' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_recursos' %}active{% endif %}">
+            <i class="fa-solid fa-gas-pump"></i> Gestión de Recursos
+        </a>
+        <a href="/admin/" class="nav-item" target="_blank">
+            <i class="fa-solid fa-user-shield"></i> Panel Admin
+        </a>
+    </nav>
+
+    <main class="main-content">
+        <header class="header">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <span class="pulsing-badge"></span>
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+            </div>
+            <div class="user-profile">
+                <div class="avatar">{{ request.user.username|make_list|first|upper }}</div>
+                <span style="font-weight: 600;">{{ request.user.username }}</span>
+                
+                <form action="{% url 'logout' %}" method="post" style="margin-left: 6px;">
+                    {% csrf_token %}
+                    <button type="submit" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 18px; padding: 4px; transition: transform 0.2s;" title="Cerrar Sesión" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
+                        <i class="fa-solid fa-power-off"></i>
+                    </button>
+                </form>
+            </div>
+        </header>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %}">
+                    <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Generic Interactive Dynamic Modal Overlay -->
+    <div class="modal-overlay" id="appModal">
+        <div class="modal-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 id="modalTitle" style="margin: 0; color: var(--accent-green); font-size: 22px;"></h3>
+                <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 22px; color: var(--text-muted);" onclick="closeModal()"></i>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(title, htmlContent) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalBody').innerHTML = htmlContent;
+            document.getElementById('appModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('appModal').classList.remove('active');
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

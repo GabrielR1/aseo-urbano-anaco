@@ -1,0 +1,171 @@
+{% extends 'dashboard/base.html' %}
+
+{% block page_title %}Planificación de Itinerario{% endblock %}
+
+{% block extra_head %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+<style>
+    .fc-theme-standard td, .fc-theme-standard th {
+        border-color: rgba(255,255,255,0.1);
+    }
+    .fc .fc-toolbar-title {
+        color: var(--text-main);
+    }
+    .fc .fc-button-primary {
+        background-color: var(--accent-green);
+        border-color: var(--accent-green);
+    }
+    .fc .fc-button-primary:not(:disabled):active, .fc .fc-button-primary:not(:disabled).fc-button-active {
+        background-color: #059669;
+        border-color: #059669;
+    }
+    .fc-daygrid-day-number {
+        color: var(--text-muted);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="margin-bottom: 24px;">
+    <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div>
+            <h3 style="margin: 0; color: var(--text-main);">Gestión de Jornadas de Trabajo</h3>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px;">Asigna vehículos y choferes a rutas de recolección de forma dinámica</p>
+        </div>
+        <button onclick="abrirModalAsignar()" style="padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
+            <i class="fa-solid fa-plus-circle" style="margin-right: 8px;"></i> Asignar Nueva Jornada
+        </button>
+    </div>
+</div>
+
+<div class="glass-card" style="margin-bottom: 24px;">
+    <div id='calendar'></div>
+</div>
+
+<div class="glass-card">
+    <h3 style="margin-top: 0; color: var(--text-main);">Listado de Jornadas Registradas</h3>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--glass-border);">
+                    <th style="padding: 12px; color: var(--text-muted);">Fecha</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Vehículo</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Ruta Asignada</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Conductor</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Estado</th>
+                    <th style="padding: 12px; color: var(--text-muted); text-align: center;">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for j in jornadas %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 12px;">{{ j.fecha|date:"d/m/Y" }}</td>
+                    <td style="padding: 12px; font-weight: bold; color: var(--accent-blue);">{{ j.vehiculo.placa }}</td>
+                    <td style="padding: 12px; color: var(--accent-green); font-weight: 600;">{{ j.ruta.nombre }}</td>
+                    <td style="padding: 12px;">{{ j.chofer.usuario.get_full_name|default:j.chofer.usuario.username }}</td>
+                    <td style="padding: 12px;">
+                        {% if j.estado == 'finalizada' %}
+                        <span style="color: var(--accent-green); font-weight: 600;">Finalizada</span>
+                        {% elif j.estado == 'en_curso' %}
+                        <span style="color: var(--accent-blue); font-weight: 600;">En Curso</span>
+                        {% else %}
+                        <span style="color: #f59e0b; font-weight: 600;">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px; text-align: center;">
+                        <button onclick="abrirModalEliminarJornada({{ j.id }}, '{{ j.ruta.nombre|escapejs }}')" 
+                                style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                            <i class="fa-solid fa-trash-can"></i> Eliminar
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted);">No hay jornadas de trabajo registradas aún.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function abrirModalAsignar() {
+        var content = `
+            <form action="{% url 'jornada_crear' %}" method="post" style="text-align: left;">
+                {% csrf_token %}
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Vehículo:</label>
+                    <select name="vehiculo" class="form-input" required>
+                        {% for v in vehiculos %}<option value="{{ v.id }}">{{ v.marca }} ({{ v.placa }})</option>{% endfor %}
+                    </select>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Ruta:</label>
+                    <select name="ruta" class="form-input" required>
+                        {% for r in rutas %}<option value="{{ r.id }}">{{ r.nombre }} - {{ r.zona }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Chofer Conductor:</label>
+                    <select name="chofer" class="form-input">
+                        {% for c in choferes %}
+                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }} ({{ c.licencia }})</option>
+                        {% empty %}
+                        <option value="">Por defecto (Administrador)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="margin-bottom: 24px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Fecha de Ejecución:</label>
+                    <input type="date" name="fecha" class="form-input" required>
+                </div>
+                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #10b981, #059669); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;">
+                    <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Guardar Jornada
+                </button>
+            </form>
+        `;
+        openModal('Asignar Nueva Jornada', content);
+    }
+
+    function abrirModalEliminarJornada(id, rutaNombre) {
+        var actionUrl = "{% url 'jornada_eliminar' 0 %}".replace('0', id);
+        var content = `
+            <form action="${actionUrl}" method="post" style="text-align: center;">
+                {% csrf_token %}
+                <p style="font-size: 16px; color: var(--text-main); margin-bottom: 24px;">¿Eliminar la jornada asignada para la ruta <strong style="color: var(--accent-red);">${rutaNombre}</strong>?</p>
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" onclick="closeModal()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 12px;">Cancelar</button>
+                    <button type="submit" style="flex: 1; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 12px; font-weight: 700;">Eliminar</button>
+                </div>
+            </form>
+        `;
+        openModal('Eliminar Jornada', content);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'es',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek'
+            },
+            events: [
+                {% for j in jornadas %}
+                {
+                    title: '{{ j.vehiculo.placa }} - {{ j.ruta.nombre }}',
+                    start: '{{ j.fecha|date:"Y-m-d" }}',
+                    color: '{% if j.estado == "finalizada" %}#10b981{% elif j.estado == "en_curso" %}#3b82f6{% else %}#f59e0b{% endif %}'
+                },
+                {% endfor %}
+            ]
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %}

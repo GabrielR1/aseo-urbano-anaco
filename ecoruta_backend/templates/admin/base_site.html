@@ -1,0 +1,213 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | EcoRuta Admin{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --eco-green: #10b981;
+        --eco-dark-green: #059669;
+        --bg-dark: #0f172a;
+        --card-bg: rgba(30, 41, 59, 0.75);
+        --text-light: #f8fafc;
+        --text-muted: #94a3b8;
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --header-bg: rgba(15, 23, 42, 0.85);
+    }
+
+    body {
+        font-family: 'Outfit', sans-serif !important;
+        background-color: var(--bg-dark) !important;
+        color: var(--text-light) !important;
+        background-image: 
+            radial-gradient(circle at 5% 5%, rgba(16, 185, 129, 0.12) 0%, transparent 400px),
+            radial-gradient(circle at 95% 95%, rgba(59, 130, 246, 0.1) 0%, transparent 400px) !important;
+        background-attachment: fixed !important;
+    }
+
+    /* Top Header */
+    #header {
+        background: var(--header-bg) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
+        padding: 16px 28px !important;
+        color: var(--text-light) !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #branding h1 {
+        font-family: 'Outfit', sans-serif !important;
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        color: var(--eco-green) !important;
+        margin: 0 !important;
+    }
+
+    #branding h1 a:link, #branding h1 a:visited {
+        color: var(--eco-green) !important;
+        text-decoration: none !important;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #user-tools {
+        font-size: 14px !important;
+        color: var(--text-muted) !important;
+    }
+
+    #user-tools a {
+        color: var(--eco-green) !important;
+        text-decoration: none !important;
+        font-weight: 600 !important;
+        margin: 0 6px !important;
+        padding: 6px 12px !important;
+        border-radius: 8px !important;
+        background: rgba(16, 185, 129, 0.1) !important;
+        transition: all 0.2s ease !important;
+    }
+
+    #user-tools a:hover {
+        background: rgba(16, 185, 129, 0.2) !important;
+        color: #ffffff !important;
+    }
+
+    /* Main Container & Cards */
+    #main-content, .dashboard #content, #content {
+        background: transparent !important;
+        padding: 30px !important;
+    }
+
+    .module, div.inline-group {
+        background: var(--card-bg) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border: 1px solid var(--glass-border) !important;
+        border-radius: 18px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+        margin-bottom: 28px !important;
+        overflow: hidden !important;
+    }
+
+    .module caption, .module h2, div.inline-group h2 {
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.05)) !important;
+        color: var(--eco-green) !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        padding: 14px 20px !important;
+        border-bottom: 1px solid var(--glass-border) !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    /* Tables */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    th {
+        background: rgba(15, 23, 42, 0.6) !important;
+        color: var(--text-muted) !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        padding: 14px 18px !important;
+        border-bottom: 1px solid var(--glass-border) !important;
+    }
+
+    td {
+        padding: 14px 18px !important;
+        color: var(--text-light) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+        font-size: 14px !important;
+    }
+
+    tr:hover td {
+        background: rgba(16, 185, 129, 0.06) !important;
+    }
+
+    a:link, a:visited {
+        color: var(--eco-green);
+        text-decoration: none;
+    }
+
+    a:hover {
+        color: #34d399;
+    }
+
+    /* Buttons */
+    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 10px 20px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25) !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .button:hover, input[type=submit]:hover, input[type=button]:hover, a.button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35) !important;
+        background: linear-gradient(135deg, #34d399, #059669) !important;
+    }
+
+    .button.deletelink, a.deletelink {
+        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+        box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
+    }
+
+    /* Inputs */
+    input[type=text], input[type=password], input[type=email], input[type=url], input[type=number], select, textarea {
+        background: rgba(0, 0, 0, 0.3) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+        padding: 10px 14px !important;
+        font-size: 14px !important;
+        box-sizing: border-box !important;
+    }
+
+    input[type=text]:focus, input[type=password]:focus, select:focus, textarea:focus {
+        outline: none !important;
+        border-color: var(--eco-green) !important;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+    }
+
+    /* Breadcrumbs */
+    div.breadcrumbs {
+        background: var(--card-bg) !important;
+        backdrop-filter: blur(10px) !important;
+        border-bottom: 1px solid var(--glass-border) !important;
+        padding: 12px 28px !important;
+        color: var(--text-muted) !important;
+        font-size: 13px !important;
+    }
+
+    div.breadcrumbs a {
+        color: var(--eco-green) !important;
+    }
+</style>
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        <i class="fa-solid fa-leaf" style="color: #10b981;"></i> EcoRuta Admin
+    </a>
+</h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

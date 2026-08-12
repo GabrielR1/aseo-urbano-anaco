@@ -1,0 +1,252 @@
+{% extends 'dashboard/base.html' %}
+
+{% block page_title %}Gestión de Recursos y Flota{% endblock %}
+
+{% block content %}
+<div class="grid-3">
+    <div class="glass-card">
+        <h3 style="margin-top: 0; color: var(--text-muted);">Combustible Total Registrado</h3>
+        <p style="font-size: 32px; font-weight: 700; margin: 10px 0; color: var(--accent-red);">{{ total_litros }} <span style="font-size: 16px;">Lts</span></p>
+    </div>
+    <div class="glass-card">
+        <h3 style="margin-top: 0; color: var(--text-muted);">Costo Total Estimado</h3>
+        <p style="font-size: 32px; font-weight: 700; margin: 10px 0; color: var(--accent-green);">$ {{ costo_total }}</p>
+    </div>
+    <div class="glass-card">
+        <h3 style="margin-top: 0; color: var(--text-muted);">Promedio de Rendimiento Flota</h3>
+        <p style="font-size: 32px; font-weight: 700; margin: 10px 0; color: var(--accent-blue);">{{ rendimiento_prom }} <span style="font-size: 16px;">Km/L</span></p>
+    </div>
+</div>
+
+<div class="glass-card" style="margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+        <h3 style="margin: 0;">Registro de Cargas de Combustible</h3>
+        <button onclick="abrirModalRecurso()" style="padding: 10px 20px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
+            <i class="fa-solid fa-gas-pump" style="margin-right: 8px;"></i> Guardar Carga de Combustible
+        </button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--glass-border);">
+                    <th style="padding: 12px; color: var(--text-muted);">Fecha / Hora</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Vehículo</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Litros</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Costo</th>
+                    <th style="padding: 12px; color: var(--text-muted);">Km Actual</th>
+                    <th style="padding: 12px; color: var(--text-muted); text-align: center;">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in registros %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 12px;">{{ reg.fecha|date:"d/m/Y H:i" }}</td>
+                    <td style="padding: 12px; font-weight: bold; color: var(--accent-green);">{{ reg.vehiculo.placa }}</td>
+                    <td style="padding: 12px;">{{ reg.litros }} L</td>
+                    <td style="padding: 12px; color: #34d399; font-weight: 600;">$ {{ reg.costo_total }}</td>
+                    <td style="padding: 12px;">{{ reg.kilometraje_actual }} km</td>
+                    <td style="padding: 12px; text-align: center;">
+                        <button onclick="abrirModalEliminarRecurso({{ reg.id }})" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted);">No hay registros de combustible aún.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: var(--text-main);">Estado y Control de la Flota de Transporte</h3>
+        <button onclick="abrirModalCrearVehiculo()" style="padding: 10px 20px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); transition: all 0.3s ease;">
+            <i class="fa-solid fa-truck" style="margin-right: 8px;"></i> Guardar Nuevo Vehículo
+        </button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+        {% for v in vehiculos %}
+        <div class="glass-card" style="padding: 20px; background: rgba(15, 23, 42, 0.5);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <strong style="font-size: 18px; color: var(--accent-blue);">{{ v.placa }}</strong>
+                {% if v.estado == 'activo' %}
+                <span style="color: var(--accent-green); font-size: 13px; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> Activo</span>
+                {% elif v.estado == 'mantenimiento' %}
+                <span style="color: var(--accent-red); font-size: 13px; font-weight: 600;"><i class="fa-solid fa-wrench"></i> Mantenimiento</span>
+                {% else %}
+                <span style="color: var(--text-muted); font-size: 13px; font-weight: 600;"><i class="fa-solid fa-ban"></i> Inactivo</span>
+                {% endif %}
+            </div>
+            <div style="font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px;">
+                <i class="fa-solid fa-truck-moving"></i> {{ v.marca }} {{ v.modelo }}<br>
+                <i class="fa-solid fa-weight-hanging"></i> Capacidad: <strong>{{ v.capacidad_toneladas }} Ton</strong><br>
+                <i class="fa-solid fa-gauge-high"></i> Rendimiento: <strong>{{ v.rendimiento_km_por_litro }} Km/L</strong>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                <button onclick="abrirModalEditarVehiculo({{ v.id }}, '{{ v.placa|escapejs }}', '{{ v.marca|escapejs }}', '{{ v.modelo|escapejs }}', '{{ v.capacidad_toneladas }}', '{{ v.estado }}', '{{ v.rendimiento_km_por_litro }}')" 
+                        style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--accent-blue); color: #60a5fa; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                    <i class="fa-solid fa-pen"></i> Modificar
+                </button>
+                <button onclick="abrirModalEliminarVehiculo({{ v.id }}, '{{ v.placa|escapejs }}')" 
+                        style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                    <i class="fa-solid fa-trash"></i> Eliminar
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No hay vehículos registrados en la flota.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function abrirModalRecurso() {
+        var content = `
+            <form action="{% url 'recurso_crear' %}" method="post" style="text-align: left;">
+                {% csrf_token %}
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Vehículo:</label>
+                    <select name="vehiculo" class="form-input" required>
+                        {% for v in vehiculos %}<option value="{{ v.id }}">{{ v.placa }} ({{ v.marca }})</option>{% endfor %}
+                    </select>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Litros de Combustible:</label>
+                    <input type="number" step="0.01" name="litros" class="form-input" placeholder="Ej. 50.0" required>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Costo Total ($):</label>
+                    <input type="number" step="0.01" name="costo_total" class="form-input" placeholder="Ej. 25.00" required>
+                </div>
+                <div style="margin-bottom: 24px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Kilometraje Actual:</label>
+                    <input type="number" name="kilometraje" class="form-input" placeholder="Ej. 45000">
+                </div>
+                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #10b981, #059669); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;">
+                    <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Registrar Carga
+                </button>
+            </form>
+        `;
+        openModal('Nuevo Registro de Carga', content);
+    }
+
+    function abrirModalEliminarRecurso(id) {
+        var actionUrl = "{% url 'recurso_eliminar' 0 %}".replace('0', id);
+        var content = `
+            <form action="${actionUrl}" method="post" style="text-align: center;">
+                {% csrf_token %}
+                <p style="font-size: 16px; color: var(--text-main); margin-bottom: 24px;">¿Eliminar este registro de carga de combustible?</p>
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" onclick="closeModal()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 12px;">Cancelar</button>
+                    <button type="submit" style="flex: 1; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 12px; font-weight: 700;">Eliminar</button>
+                </div>
+            </form>
+        `;
+        openModal('Eliminar Registro', content);
+    }
+
+    function abrirModalCrearVehiculo() {
+        var content = `
+            <form action="{% url 'vehiculo_crear' %}" method="post" style="text-align: left;">
+                {% csrf_token %}
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Placa:</label>
+                    <input type="text" name="placa" class="form-input" placeholder="Ej. A88B99" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Marca:</label>
+                    <input type="text" name="marca" class="form-input" placeholder="Ej. Isuzu" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Modelo:</label>
+                    <input type="text" name="modelo" class="form-input" placeholder="Ej. Forward 800" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Capacidad (Toneladas):</label>
+                    <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" placeholder="Ej. 12.0" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Rendimiento (Km/L):</label>
+                    <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" placeholder="Ej. 5.5" required>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Estado:</label>
+                    <select name="estado" class="form-input">
+                        <option value="activo">Activo</option>
+                        <option value="mantenimiento">En Mantenimiento</option>
+                        <option value="inactivo">Inactivo</option>
+                    </select>
+                </div>
+                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;">
+                    <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Guardar Vehículo
+                </button>
+            </form>
+        `;
+        openModal('Guardar Nuevo Vehículo', content);
+    }
+
+    function abrirModalEditarVehiculo(id, placa, marca, modelo, capacidad, estado, rendimiento) {
+        var actionUrl = "{% url 'vehiculo_editar' 0 %}".replace('0', id);
+        var content = `
+            <form action="${actionUrl}" method="post" style="text-align: left;">
+                {% csrf_token %}
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Placa:</label>
+                    <input type="text" name="placa" class="form-input" value="${placa}" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Marca:</label>
+                    <input type="text" name="marca" class="form-input" value="${marca}" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Modelo:</label>
+                    <input type="text" name="modelo" class="form-input" value="${modelo}" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Capacidad (Toneladas):</label>
+                    <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" value="${capacidad}" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Rendimiento (Km/L):</label>
+                    <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" value="${rendimiento}" required>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Estado:</label>
+                    <select name="estado" class="form-input">
+                        <option value="activo" ${estado==='activo'?'selected':''}>Activo</option>
+                        <option value="mantenimiento" ${estado==='mantenimiento'?'selected':''}>En Mantenimiento</option>
+                        <option value="inactivo" ${estado==='inactivo'?'selected':''}>Inactivo</option>
+                    </select>
+                </div>
+                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;">
+                    <i class="fa-solid fa-pen-to-square" style="margin-right: 8px;"></i> Modificar Vehículo
+                </button>
+            </form>
+        `;
+        openModal('Modificar Vehículo', content);
+    }
+
+    function abrirModalEliminarVehiculo(id, placa) {
+        var actionUrl = "{% url 'vehiculo_eliminar' 0 %}".replace('0', id);
+        var content = `
+            <form action="${actionUrl}" method="post" style="text-align: center;">
+                {% csrf_token %}
+                <p style="font-size: 16px; color: var(--text-main); margin-bottom: 24px;">¿Eliminar el vehículo con placa <strong style="color: var(--accent-red);">${placa}</strong>?</p>
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" onclick="closeModal()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 12px;">Cancelar</button>
+                    <button type="submit" style="flex: 1; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 12px; font-weight: 700;">Eliminar</button>
+                </div>
+            </form>
+        `;
+        openModal('Confirmar Eliminación', content);
+    }
+</script>
+{% endblock %}
