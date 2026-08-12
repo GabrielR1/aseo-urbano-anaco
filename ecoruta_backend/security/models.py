@@ -21,5 +21,13 @@ class Usuario(AbstractUser):
         verbose_name = "Usuario"
         verbose_name_plural = "Usuarios del Sistema"
 
+    def save(self, *args, **kwargs):
+        # Asignar permisos de acceso al panel Django Admin según el rol
+        if self.rol == self.ADMIN:
+            self.is_staff = True
+        elif self.rol == self.CHOFER and not self.is_superuser:
+            self.is_staff = False
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.username} ({self.get_rol_display()})"
