@@ -12,4 +12,6 @@ urlpatterns = [
     path('recursos/', views.recursos, name='dashboard_recursos'),
     path('recursos/crear/', views.recurso_crear, name='recurso_crear'),
     path('recursos/<int:pk>/eliminar/', views.recurso_eliminar, name='recurso_eliminar'),
+    path('recursos/exportar/excel/', views.exportar_recursos_excel, name='exportar_recursos_excel'),
+    path('recursos/exportar/pdf/', views.exportar_recursos_pdf, name='exportar_recursos_pdf'),
 ]

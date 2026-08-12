@@ -21,9 +21,17 @@
 <div class="glass-card" style="margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
         <h3 style="margin: 0;">Registro de Cargas de Combustible</h3>
-        <button onclick="abrirModalRecurso()" style="padding: 10px 20px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
-            <i class="fa-solid fa-gas-pump" style="margin-right: 8px;"></i> Guardar Carga de Combustible
-        </button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="{% url 'exportar_recursos_pdf' %}" style="padding: 10px 18px; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; text-decoration: none; border-radius: 12px; font-weight: bold; transition: all 0.3s ease;">
+                <i class="fa-solid fa-file-pdf" style="margin-right: 6px;"></i> Exportar PDF
+            </a>
+            <a href="{% url 'exportar_recursos_excel' %}" style="padding: 10px 18px; background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: #34d399; text-decoration: none; border-radius: 12px; font-weight: bold; transition: all 0.3s ease;">
+                <i class="fa-solid fa-file-excel" style="margin-right: 6px;"></i> Exportar Excel
+            </a>
+            <button onclick="abrirModalRecurso()" style="padding: 10px 20px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
+                <i class="fa-solid fa-gas-pump" style="margin-right: 8px;"></i> Guardar Carga
+            </button>
+        </div>
     </div>
 
     <div style="overflow-x: auto;">
