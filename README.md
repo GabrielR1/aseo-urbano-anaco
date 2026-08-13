@@ -2,93 +2,70 @@
 
 > **"Limpiando nuestro presente, para disfrutar el futuro."**
 
-EcoRuta es una plataforma integral de gestión de rutas ecológicas y recolección de desechos, conformada por un **Backend en Django** (Panel Web Administrativo y API REST) y un **Frontend en Flutter** (Aplicación Móvil para Choferes y Personal de Campo).
+EcoRuta es una plataforma integral para la gestión, optimización y seguimiento de rutas ecológicas y recolección de desechos. El sistema consta de un **Backend en Django** (Panel Web Administrativo y API REST) y un **Frontend en Flutter** (Aplicación Móvil para Choferes y Personal de Campo).
 
 ---
 
-## 👨‍🏫 Guía Rápida para el Profesor / Evaluador
+## 🏗️ Arquitectura del Sistema
 
-Para clonar y ejecutar el proyecto localmente en su equipo, siga los siguientes pasos:
+* **Backend (Django 5.x):**
+  * Panel Web Administrativo con interfaz moderna Eco-Verde (Glassmorphism UI).
+  * API RESTful construida con Django REST Framework y autenticación mediante JWT.
+  * Base de Datos SQLite preconfigurada para entorno de desarrollo y pruebas.
 
-### 1️⃣ Clonar el Repositorio de GitHub
-
-Abra su terminal / consola de comandos y ejecute:
-
-```bash
-git clone https://github.com/Omar8394/programacion4.git
-cd programacion4
-```
+* **Frontend (Flutter 3.x):**
+  * Aplicación móvil multiplataforma para choferes y recolectores.
+  * Seguimiento de rutas de recolección en tiempo real y reporte de incidencias.
 
 ---
 
-### 2️⃣ Configuración y Ejecución del Backend (Django)
+## 🚀 Instalación y Configuración del Entorno Local
 
-#### En Windows (PowerShell / Command Prompt):
-```cmd
-# 1. Crear entorno virtual (si no existe)
-python -m venv venv
+### 1. Requisitos Previos
+* Python 3.10 o superior
+* Flutter SDK 3.x (Opcional, para ejecución del módulo móvil)
 
-# 2. Activar el entorno virtual
-venv\Scripts\activate
+### 2. Configuración del Backend (Django)
 
-# 3. Instalar las dependencias del proyecto
-pip install -r ecoruta_backend/requirements.txt
-
-# 4. Entrar al directorio del backend
-cd ecoruta_backend
-
-# 5. Iniciar el servidor local
-python manage.py runserver 0.0.0.0:8000
-```
-
-#### En Linux / macOS:
 ```bash
 # 1. Crear entorno virtual
-python3 -m venv venv
+python -m venv venv
 
-# 2. Activar el entorno virtual
+# 2. Activar entorno virtual
+# En Windows:
+venv\Scripts\activate
+# En Linux/macOS:
 source venv/bin/activate
 
 # 3. Instalar dependencias
 pip install -r ecoruta_backend/requirements.txt
 
-# 4. Entrar al directorio del backend
+# 4. Iniciar el servidor de desarrollo
 cd ecoruta_backend
-
-# 5. Iniciar el servidor
 python manage.py runserver 0.0.0.0:8000
 ```
 
 ---
 
-### 🔑 Credenciales de Acceso para Pruebas
+## 🔑 Accesos del Sistema
 
-El repositorio incluye la base de datos preconfigurada con datos de prueba (Rutas, Vehículos, Cargas y Personal). Puede ingresar inmediatamente con las siguientes credenciales:
-
-* **Panel Dashboard Web (Administrativo):** [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/)
+* **Panel Dashboard Web:** [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/)
 * **Panel de Administración Django:** [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
-* **Usuario:** `admin`
-* **Contraseña:** `admin123`
+* **Usuario por defecto:** `admin`
+* **Contraseña por defecto:** `admin123`
 
 ---
 
-### 3️⃣ Ejecución del Frontend Móvil (Flutter - Opcional)
-
-Si desea probar la aplicación móvil para choferes:
+## 📱 Configuración del Frontend (Flutter)
 
 ```bash
 cd ecoruta_frontend
 flutter pub get
-flutter run -d chrome   # Para ejecutar en navegador Web
-# o bien:
-flutter run             # Para ejecutar en emulador/dispositivo Android o iOS
+flutter run -d chrome
 ```
 
 ---
 
-## 🛠️ Tecnologías y Arquitectura
+## 📄 Documentación Adicional
 
-* **Backend:** Python 3.12, Django 5.x, Django REST Framework (DRF), JWT Authentication, SQLite/PostgreSQL.
-* **Frontend Web:** HTML5, CSS3 Glassmorphism (Diseño Eco-Verde Esmeralda), JavaScript Vanilla, FontAwesome, Google Fonts (Outfit).
-* **Aplicación Móvil:** Flutter SDK (Dart 3.x), Provider (Gestión de Estado), HTTP REST Client.
-* **Documentación:** [`MANUAL_DE_USUARIO.md`](MANUAL_DE_USUARIO.md) incluido en el directorio raíz.
+Para más información sobre la arquitectura detallada, modelos de datos y flujo de trabajo, consulte el archivo [`MANUAL_DE_USUARIO.md`](MANUAL_DE_USUARIO.md).
