@@ -282,6 +282,17 @@
 </h1>
 {% endblock %}
 
+{% block userlinks %}
+    Bienvenido(a), <strong>{% firstof user.get_full_name user.get_username %}</strong>.
+    {% if site_url %}
+        <a href="{{ site_url }}">Ver Sitio Web</a> /
+    {% endif %}
+    {% if user.has_usable_password %}
+        <a href="{% url 'admin:password_change' %}">Cambiar Contraseña</a> /
+    {% endif %}
+    <a href="{% url 'admin:logout' %}">Cerrar Sesión</a>
+{% endblock %}
+
 {% block nav-global %}
 <div style="margin-left: 20px;">
     <a href="/dashboard/" style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--glass-border); color: #60a5fa; padding: 8px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; text-decoration: none;">
