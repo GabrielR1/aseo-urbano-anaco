@@ -25,6 +25,26 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-#$eov1s9v88k70to0#)$2je#id
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 't')
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '*').split(',')]
 
+# Permitir orígenes de confianza para CSRF (túneles ngrok, localtunnel, cloudflare y red local)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://*.ngrok-free.app',
+    'https://*.ngrok.io',
+    'https://*.trycloudflare.com',
+    'https://*.loca.lt',
+    'https://*.serveo.net',
+    'https://*.pinggy.link',
+    'https://*.lhr.life',
+    'https://*.lhrtunnel.link',
+]
+
+# Permitir orígenes dinámicos por IP en red local
+for i in range(1, 255):
+    CSRF_TRUSTED_ORIGINS.append(f'http://192.168.1.{i}:8000')
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # Application definition
 

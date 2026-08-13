@@ -1,6 +1,6 @@
 *.pyc
 __pycache__/
-*.sqlite3
+# *.sqlite3 (Incluido para evaluacion del profesor)
 /media/
 .DS_Store
 .idea/
