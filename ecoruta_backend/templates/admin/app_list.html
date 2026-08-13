@@ -1,41 +1,53 @@
 {% if app_list %}
   {% for app in app_list %}
     <div class="app-{{ app.app_label }} module{% if app.app_url in request.path %} current-app{% endif %}">
+      <h2>
+        <a href="{{ app.app_url }}" style="color: #34d399; text-decoration: none;">
+          <i class="fa-solid fa-folder-open" style="margin-right: 8px;"></i> {{ app.name }}
+        </a>
+      </h2>
       <table>
-        <caption>
-          <a href="{{ app.app_url }}" class="section" title="Módulos en {{ app.name }}">{{ app.name }}</a>
-        </caption>
         {% for model in app.models %}
           <tr class="model-{{ model.object_name|lower }}{% if model.admin_url in request.path %} current-model{% endif %}">
             {% if model.admin_url %}
-              <th scope="row" style="font-weight: 700;"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>
+              <th scope="row" style="padding: 16px 24px; font-weight: 700; font-size: 15px;">
+                <a href="{{ model.admin_url }}" style="color: #f8fafc; text-decoration: none;">
+                  <i class="fa-solid fa-cube" style="margin-right: 8px; color: var(--text-muted);"></i> {{ model.name }}
+                </a>
+              </th>
             {% else %}
-              <th scope="row">{{ model.name }}</th>
+              <th scope="row" style="padding: 16px 24px; font-weight: 700; font-size: 15px;">{{ model.name }}</th>
             {% endif %}
 
-            {% if model.add_url %}
-              <td style="width: 110px; text-align: center;"><a href="{{ model.add_url }}" class="addlink" style="color: #34d399; font-weight: 600;"><i class="fa-solid fa-plus"></i> Añadir</a></td>
-            {% else %}
-              <td></td>
-            {% endif %}
+            <td style="padding: 12px 24px; text-align: right; white-space: nowrap;">
+              <div style="display: inline-flex; gap: 8px; align-items: center; justify-content: flex-end;">
+                {% if model.add_url %}
+                  <a href="{{ model.add_url }}" class="addlink">
+                    <i class="fa-solid fa-plus"></i> Añadir
+                  </a>
+                {% endif %}
 
-            {% if model.admin_url %}
-              {% if model.view_only %}
-                <td style="width: 120px; text-align: center;"><a href="{{ model.admin_url }}" class="viewlink" style="color: #60a5fa; font-weight: 600;"><i class="fa-solid fa-eye"></i> Consultar</a></td>
-                <td style="width: 120px;"></td>
-              {% else %}
-                <td style="width: 120px; text-align: center;"><a href="{{ model.admin_url }}" class="changelink" style="color: #60a5fa; font-weight: 600;"><i class="fa-solid fa-pen"></i> Modificar</a></td>
-                <td style="width: 120px; text-align: center;"><a href="{{ model.admin_url }}" class="deletelink" style="color: #f87171; font-weight: 600;" title="Ingresar para seleccionar y borrar registros"><i class="fa-solid fa-trash"></i> Eliminar</a></td>
-              {% endif %}
-            {% else %}
-              <td></td>
-              <td></td>
-            {% endif %}
+                {% if model.admin_url %}
+                  {% if model.view_only %}
+                    <a href="{{ model.admin_url }}" class="viewlink">
+                      <i class="fa-solid fa-eye"></i> Consultar
+                    </a>
+                  {% else %}
+                    <a href="{{ model.admin_url }}" class="changelink">
+                      <i class="fa-solid fa-pen-to-square"></i> Modificar
+                    </a>
+                    <a href="{{ model.admin_url }}" class="deletelink" title="Acceder a la lista para seleccionar y eliminar registros">
+                      <i class="fa-solid fa-trash-can"></i> Eliminar
+                    </a>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
           </tr>
         {% endfor %}
       </table>
     </div>
   {% endfor %}
 {% else %}
-  <p>No se encontraron aplicaciones o módulos con permisos suficientes.</p>
+  <p style="padding: 24px; color: var(--text-muted);">No hay módulos o aplicaciones disponibles.</p>
 {% endif %}

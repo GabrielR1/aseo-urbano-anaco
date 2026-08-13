@@ -6,7 +6,8 @@ from drf_spectacular.utils import extend_schema
 from .models import Jornada, PuntoGeolocalizacion, Incidencia
 from .serializers import JornadaSerializer, PuntoGeolocalizacionSerializer, IncidenciaSerializer
 from .optimizador import calcular_eficiencia_ecologica
-from administracion.models import Ruta
+from .gamificacion import evaluar_y_actualizar_puntaje_chofer
+from administracion.models import Ruta, Chofer, IncentivoChofer
 
 class JornadaViewSet(viewsets.ModelViewSet):
     queryset = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer').all()
@@ -136,3 +137,38 @@ def notificaciones_chofer(request):
         })
         
     return Response({'notificaciones': notificaciones, 'total': len(notificaciones)})
+
+@extend_schema(
+    summary="Gamificación y Perfil de Puntos del Chofer",
+    description="Devuelve el nivel, puntos acumulados, kilómetros recorridos e insignias obtenidas por el conductor.",
+    responses={200: dict}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def chofer_gamificacion_api(request):
+    chofer = Chofer.objects.filter(usuario=request.user).first()
+    if not chofer:
+        return Response({'detail': 'El usuario autenticado no tiene perfil de conductor asignado.'}, status=status.HTTP_404_NOT_FOUND)
+        
+    puntaje = evaluar_y_actualizar_puntaje_chofer(chofer)
+    insignias = IncentivoChofer.objects.filter(chofer=chofer).order_by('-otorgado_en')
+    
+    insignias_list = []
+    for inc in insignias:
+        insignias_list.append({
+            'id': inc.id,
+            'titulo': inc.titulo,
+            'descripcion': inc.descripcion,
+            'insignia': inc.get_tipo_insignia_display(),
+            'bono_usd': float(inc.monto_bono_usd),
+            'fecha': inc.otorgado_en.strftime('%d/%m/%Y')
+        })
+        
+    return Response({
+        'chofer': chofer.usuario.get_full_name() or chofer.usuario.username,
+        'puntos_totales': puntaje.puntos_totales,
+        'km_recorridos_totales': float(puntaje.km_recorridos_totales),
+        'jornadas_exitosas': puntaje.jornadas_exitosas,
+        'nivel': puntaje.get_nivel_display(),
+        'insignias': insignias_list
+    }, status=status.HTTP_200_OK)

@@ -14,7 +14,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-from administracion.models import Vehiculo, Ruta, RegistroCombustible, Chofer, RegistroAuditoria
+from administracion.models import (
+    Vehiculo, Ruta, RegistroCombustible, Chofer, RegistroAuditoria, PuntajeChofer, IncentivoChofer
+)
+from logistica.gamificacion import evaluar_y_actualizar_puntaje_chofer
 
 @login_required
 def dashboard_home(request):
@@ -44,6 +47,21 @@ def auditoria_listado(request):
         'logs': logs
     }
     return render(request, 'dashboard/auditoria.html', context)
+
+@login_required
+def incentivos_listado(request):
+    choferes = Chofer.objects.select_related('usuario').all()
+    for c in choferes:
+        evaluar_y_actualizar_puntaje_chofer(c)
+        
+    ranking = PuntajeChofer.objects.select_related('chofer', 'chofer__usuario').order_by('-puntos_totales')
+    recent_incentivos = IncentivoChofer.objects.select_related('chofer', 'chofer__usuario').order_by('-otorgado_en')[:20]
+    
+    context = {
+        'ranking': ranking,
+        'recent_incentivos': recent_incentivos
+    }
+    return render(request, 'dashboard/incentivos.html', context)
 
 @login_required
 def conductores_gestion(request):

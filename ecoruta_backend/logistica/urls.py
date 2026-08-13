@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     JornadaViewSet, PuntoGeolocalizacionViewSet, IncidenciaViewSet,
-    sincronizar_puntos_lote, monitoreo_en_vivo, optimizar_ruta_api, notificaciones_chofer
+    sincronizar_puntos_lote, monitoreo_en_vivo, optimizar_ruta_api, notificaciones_chofer, chofer_gamificacion_api
 )
 
 router = DefaultRouter()
@@ -15,5 +15,6 @@ urlpatterns = [
     path('monitoreo_en_vivo/', monitoreo_en_vivo, name='monitoreo_en_vivo'),
     path('rutas/<int:pk>/optimizar/', optimizar_ruta_api, name='optimizar_ruta_api'),
     path('notificaciones/', notificaciones_chofer, name='notificaciones_chofer'),
+    path('chofer/gamificacion/', chofer_gamificacion_api, name='chofer_gamificacion_api'),
     path('', include(router.urls)),
 ]

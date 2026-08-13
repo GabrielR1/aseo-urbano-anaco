@@ -1,0 +1,133 @@
+{% extends 'dashboard/base.html' %}
+
+{% block page_title %}Gamificación y Sistema de Incentivos a Conductores{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="margin-bottom: 24px;">
+    <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div>
+            <h3 style="margin: 0; color: var(--text-main);"><i class="fa-solid fa-trophy" style="color: #f59e0b; margin-right: 8px;"></i> Tablero de Clasificación e Incentivos</h3>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px;">Evaluación automática del desempeño de choferes, cálculo de puntuación ecológica y recompensas</p>
+        </div>
+        <div style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fbbf24; padding: 8px 16px; border-radius: 12px; font-weight: 600; font-size: 14px;">
+            <i class="fa-solid fa-award" style="margin-right: 6px;"></i> Programa de Premiación Activo
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Clasificación Leaderboard -->
+<div class="glass-card" style="margin-bottom: 24px;">
+    <h4 style="margin: 0 0 16px 0; color: var(--text-main);"><i class="fa-solid fa-ranking-star" style="color: var(--accent-green); margin-right: 6px;"></i> Ranking de Choferes EcoRuta</h4>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--glass-border);">
+                    <th style="padding: 14px; color: var(--text-muted);">Posición</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Conductor</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Nivel</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Puntos Totales</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Km Recorridos</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Jornadas Completadas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in ranking %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 14px; font-weight: 700; font-size: 16px;">
+                        {% if forloop.counter == 1 %}
+                            <span style="color: #fbbf24;">🥇 1º Lugar</span>
+                        {% elif forloop.counter == 2 %}
+                            <span style="color: #94a3b8;">🥈 2º Lugar</span>
+                        {% elif forloop.counter == 3 %}
+                            <span style="color: #d97706;">🥉 3º Lugar</span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">#{{ forloop.counter }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 14px; font-weight: 700; color: var(--text-main);">
+                        <i class="fa-solid fa-user-gear" style="margin-right: 6px; color: var(--accent-blue);"></i>
+                        {{ p.chofer.usuario.get_full_name|default:p.chofer.usuario.username }}
+                        <br><span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">Licencia: {{ p.chofer.licencia }}</span>
+                    </td>
+                    <td style="padding: 14px;">
+                        {% if p.nivel == 'oro' %}
+                        <span style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fbbf24; padding: 4px 12px; border-radius: 12px; font-weight: 700; font-size: 13px;">
+                            🥇 {{ p.get_nivel_display }}
+                        </span>
+                        {% elif p.nivel == 'plata' %}
+                        <span style="background: rgba(148, 163, 184, 0.2); border: 1px solid #94a3b8; color: #cbd5e1; padding: 4px 12px; border-radius: 12px; font-weight: 700; font-size: 13px;">
+                            🥈 {{ p.get_nivel_display }}
+                        </span>
+                        {% else %}
+                        <span style="background: rgba(217, 119, 6, 0.2); border: 1px solid #d97706; color: #f59e0b; padding: 4px 12px; border-radius: 12px; font-weight: 700; font-size: 13px;">
+                            🥉 {{ p.get_nivel_display }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 14px; font-weight: 700; font-size: 16px; color: #34d399;">
+                        {{ p.puntos_totales }} pts
+                    </td>
+                    <td style="padding: 14px; font-weight: 600; color: var(--text-main);">
+                        {{ p.km_recorridos_totales }} Km
+                    </td>
+                    <td style="padding: 14px; font-weight: 600; color: var(--text-main);">
+                        {{ p.jornadas_exitosas }} Rutas
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 32px; text-align: center; color: var(--text-muted);">
+                        No hay choferes evaluados aún en la plataforma.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Insignias y Reconocimientos Otorgados -->
+<div class="glass-card">
+    <h4 style="margin: 0 0 16px 0; color: var(--text-main);"><i class="fa-solid fa-medal" style="color: #60a5fa; margin-right: 6px;"></i> Historial de Insignias y Reconocimientos Otorgados</h4>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--glass-border);">
+                    <th style="padding: 14px; color: var(--text-muted);">Fecha</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Chofer Condecorado</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Reconocimiento</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Descripción del Logro</th>
+                    <th style="padding: 14px; color: var(--text-muted);">Bono ($)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inc in recent_incentivos %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 14px; white-space: nowrap; font-size: 14px; color: var(--text-muted);">
+                        {{ inc.otorgado_en|date:"d/m/Y H:i" }}
+                    </td>
+                    <td style="padding: 14px; font-weight: 700; color: var(--text-main);">
+                        {{ inc.chofer.usuario.get_full_name|default:inc.chofer.usuario.username }}
+                    </td>
+                    <td style="padding: 14px; font-weight: 700; color: #34d399;">
+                        {{ inc.titulo }}
+                    </td>
+                    <td style="padding: 14px; color: var(--text-muted); font-size: 14px;">
+                        {{ inc.descripcion }}
+                    </td>
+                    <td style="padding: 14px; font-weight: 700; color: #fbbf24;">
+                        + ${{ inc.monto_bono_usd }} USD
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="padding: 32px; text-align: center; color: var(--text-muted);">
+                        Aún no se registran bonos u otorgamientos de insignias recientes.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

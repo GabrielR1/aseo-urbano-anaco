@@ -88,3 +88,44 @@ class RegistroAuditoria(models.Model):
 
     def __str__(self):
         return f"[{self.accion}] {self.tabla_afectada} por {self.usuario} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
+
+class PuntajeChofer(models.Model):
+    NIVEL_CHOICES = [
+        ('bronce', '🥉 Bronce'),
+        ('plata', '🥈 Plata'),
+        ('oro', '🥇 Oro Eco-Leyenda'),
+    ]
+    chofer = models.OneToOneField(Chofer, on_delete=models.CASCADE, related_name='puntaje', verbose_name="Conductor")
+    puntos_totales = models.IntegerField(default=0, verbose_name="Puntos Totales Acumulados")
+    km_recorridos_totales = models.DecimalField(max_digits=8, decimal_places=2, default=0.0, verbose_name="Kilómetros Recorridos")
+    jornadas_exitosas = models.IntegerField(default=0, verbose_name="Jornadas Exitosas")
+    nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, default='bronce', verbose_name="Nivel Eco-Rendimiento")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+
+    class Meta:
+        verbose_name = "Puntaje y Gamificación de Chofer"
+        verbose_name_plural = "Puntajes y Gamificación de Choferes"
+
+    def __str__(self):
+        return f"{self.chofer} - {self.puntos_totales} pts ({self.get_nivel_display()})"
+
+class IncentivoChofer(models.Model):
+    TIPO_INSIGNIA_CHOICES = [
+        ('estrella', '🥇 Chofer Estrella del Mes'),
+        ('eco', '🌿 Eco-Conductor Eficiente'),
+        ('maestro', '🚚 Maestro del Volante'),
+        ('impecable', '⚡ Ruta Impecable (0 Incidencias)'),
+    ]
+    chofer = models.ForeignKey(Chofer, on_delete=models.CASCADE, related_name='incentivos', verbose_name="Conductor")
+    titulo = models.CharField(max_length=100, verbose_name="Título del Reconocimiento")
+    descripcion = models.TextField(verbose_name="Descripción del Logro")
+    tipo_insignia = models.CharField(max_length=30, choices=TIPO_INSIGNIA_CHOICES, default='eco', verbose_name="Insignia Otorgada")
+    monto_bono_usd = models.DecimalField(max_digits=6, decimal_places=2, default=0.0, verbose_name="Bono de Incentivo ($)")
+    otorgado_en = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Otorgamiento")
+
+    class Meta:
+        verbose_name = "Incentivo / Reconocimiento a Chofer"
+        verbose_name_plural = "Incentivos y Reconocimientos a Choferes"
+
+    def __str__(self):
+        return f"{self.titulo} - {self.chofer.usuario.get_full_name() or self.chofer.usuario.username}"

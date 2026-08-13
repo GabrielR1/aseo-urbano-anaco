@@ -11,12 +11,12 @@
     :root {
         --eco-green: #10b981;
         --eco-dark-green: #059669;
-        --bg-dark: #0f172a;
-        --card-bg: rgba(30, 41, 59, 0.75);
+        --bg-dark: #0b132b;
+        --card-bg: rgba(15, 23, 42, 0.75);
         --text-light: #f8fafc;
         --text-muted: #94a3b8;
         --glass-border: rgba(255, 255, 255, 0.08);
-        --header-bg: rgba(15, 23, 42, 0.85);
+        --header-bg: rgba(11, 19, 43, 0.85);
     }
 
     body {
@@ -24,27 +24,29 @@
         background-color: var(--bg-dark) !important;
         color: var(--text-light) !important;
         background-image: 
-            radial-gradient(circle at 5% 5%, rgba(16, 185, 129, 0.12) 0%, transparent 400px),
-            radial-gradient(circle at 95% 95%, rgba(59, 130, 246, 0.1) 0%, transparent 400px) !important;
+            radial-gradient(circle at 5% 5%, rgba(16, 185, 129, 0.15) 0%, transparent 500px),
+            radial-gradient(circle at 95% 95%, rgba(59, 130, 246, 0.12) 0%, transparent 500px) !important;
         background-attachment: fixed !important;
+        margin: 0 !important;
     }
 
-    /* Top Header */
+    /* Header Superior */
     #header {
         background: var(--header-bg) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
-        border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
-        padding: 16px 28px !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
+        padding: 16px 32px !important;
         color: var(--text-light) !important;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
     }
 
     #branding h1 {
         font-family: 'Outfit', sans-serif !important;
-        font-size: 22px !important;
+        font-size: 24px !important;
         font-weight: 700 !important;
         color: var(--eco-green) !important;
         margin: 0 !important;
@@ -64,79 +66,99 @@
     }
 
     #user-tools a {
-        color: var(--eco-green) !important;
+        color: #ffffff !important;
         text-decoration: none !important;
         font-weight: 600 !important;
         margin: 0 6px !important;
-        padding: 6px 12px !important;
-        border-radius: 8px !important;
-        background: rgba(16, 185, 129, 0.1) !important;
+        padding: 8px 16px !important;
+        border-radius: 10px !important;
+        background: rgba(16, 185, 129, 0.15) !important;
+        border: 1px solid rgba(16, 185, 129, 0.3) !important;
         transition: all 0.2s ease !important;
     }
 
     #user-tools a:hover {
-        background: rgba(16, 185, 129, 0.2) !important;
+        background: var(--eco-green) !important;
         color: #ffffff !important;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
     }
 
-    /* Main Container & Cards */
-    #main-content, .dashboard #content, #content {
-        background: transparent !important;
-        padding: 30px !important;
+    /* Breadcrumbs */
+    div.breadcrumbs {
+        background: rgba(15, 23, 42, 0.5) !important;
+        backdrop-filter: blur(10px) !important;
+        border-bottom: 1px solid var(--glass-border) !important;
+        padding: 12px 32px !important;
+        color: var(--text-muted) !important;
+        font-size: 13px !important;
     }
 
-    .module, div.inline-group {
+    div.breadcrumbs a {
+        color: var(--eco-green) !important;
+        font-weight: 600 !important;
+    }
+
+    /* Módulos y Tarjetas Glassmorphism */
+    .module, div.inline-group, #content-related .module {
         background: var(--card-bg) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
         border: 1px solid var(--glass-border) !important;
-        border-radius: 18px !important;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35) !important;
         margin-bottom: 28px !important;
         overflow: hidden !important;
     }
 
-    .module caption, .module h2, div.inline-group h2 {
-        background: linear-gradient(90deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.05)) !important;
-        color: var(--eco-green) !important;
-        font-size: 16px !important;
+    .module caption, .module h2, div.inline-group h2, #content-related h2 {
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.05)) !important;
+        color: #34d399 !important;
+        font-size: 15px !important;
         font-weight: 700 !important;
-        padding: 14px 20px !important;
+        padding: 16px 24px !important;
         border-bottom: 1px solid var(--glass-border) !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
+        letter-spacing: 0.8px !important;
+        margin: 0 !important;
     }
 
-    /* Tables */
+    /* Tablas dentro del admin */
     table {
         width: 100% !important;
         border-collapse: collapse !important;
+        background: transparent !important;
     }
 
     th {
-        background: rgba(15, 23, 42, 0.6) !important;
+        background: rgba(15, 23, 42, 0.7) !important;
         color: var(--text-muted) !important;
         font-size: 13px !important;
         font-weight: 600 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
-        padding: 14px 18px !important;
+        padding: 16px 20px !important;
         border-bottom: 1px solid var(--glass-border) !important;
     }
 
     td {
-        padding: 14px 18px !important;
+        padding: 16px 20px !important;
         color: var(--text-light) !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
         font-size: 14px !important;
+        background: transparent !important;
     }
 
-    tr:hover td {
+    tr {
+        background: transparent !important;
+        transition: all 0.2s ease !important;
+    }
+
+    tr:hover {
         background: rgba(16, 185, 129, 0.06) !important;
     }
 
     a:link, a:visited {
-        color: var(--eco-green);
+        color: #f8fafc;
         text-decoration: none;
     }
 
@@ -144,60 +166,109 @@
         color: #34d399;
     }
 
-    /* Buttons */
-    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+    /* Estilos para Enlaces de Acción (Añadir, Modificar, Eliminar) */
+    .addlink, .changelink, .deletelink, .viewlink {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        padding: 8px 14px !important;
+        border-radius: 10px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        text-decoration: none !important;
+        background-image: none !important;
+    }
+
+    .addlink {
+        background: rgba(16, 185, 129, 0.15) !important;
+        border: 1px solid rgba(16, 185, 129, 0.3) !important;
+        color: #34d399 !important;
+    }
+
+    .addlink:hover {
+        background: rgba(16, 185, 129, 0.3) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+    }
+
+    .changelink {
+        background: rgba(59, 130, 246, 0.15) !important;
+        border: 1px solid rgba(59, 130, 246, 0.3) !important;
+        color: #60a5fa !important;
+    }
+
+    .changelink:hover {
+        background: rgba(59, 130, 246, 0.3) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+    }
+
+    .deletelink {
+        background: rgba(239, 68, 68, 0.15) !important;
+        border: 1px solid rgba(239, 68, 68, 0.3) !important;
+        color: #f87171 !important;
+    }
+
+    .deletelink:hover {
+        background: rgba(239, 68, 68, 0.3) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
+    }
+
+    /* Fix Sidebar Acciones Recientes */
+    #content-related {
+        margin-left: 0 !important;
+        background: transparent !important;
+    }
+
+    #content-related .module {
+        background: var(--card-bg) !important;
+        border: 1px solid var(--glass-border) !important;
+        border-radius: 20px !important;
+        padding: 0 !important;
+    }
+
+    #content-related h3 {
+        color: var(--text-muted) !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        padding: 12px 20px 0 20px !important;
+        margin: 0 !important;
+        text-transform: uppercase !important;
+    }
+
+    #content-related p, #content-related ul {
+        padding: 16px 20px !important;
+        margin: 0 !important;
+        color: var(--text-muted) !important;
+        font-size: 14px !important;
+        list-style: none !important;
+    }
+
+    #content-related li {
+        padding: 8px 0 !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Botones primarios */
+    .button, input[type=submit], input[type=button], .submit-row input {
         background: linear-gradient(135deg, #10b981, #059669) !important;
         color: #ffffff !important;
         border: none !important;
-        border-radius: 10px !important;
-        padding: 10px 20px !important;
+        border-radius: 12px !important;
+        padding: 12px 24px !important;
         font-size: 14px !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
         cursor: pointer !important;
-        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25) !important;
+        box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3) !important;
         transition: all 0.2s ease !important;
     }
 
-    .button:hover, input[type=submit]:hover, input[type=button]:hover, a.button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35) !important;
-        background: linear-gradient(135deg, #34d399, #059669) !important;
-    }
-
-    .button.deletelink, a.deletelink {
-        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-        box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
-    }
-
-    /* Inputs */
-    input[type=text], input[type=password], input[type=email], input[type=url], input[type=number], select, textarea {
-        background: rgba(0, 0, 0, 0.3) !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-        border-radius: 10px !important;
-        color: #ffffff !important;
-        padding: 10px 14px !important;
-        font-size: 14px !important;
-        box-sizing: border-box !important;
-    }
-
-    input[type=text]:focus, input[type=password]:focus, select:focus, textarea:focus {
-        outline: none !important;
-        border-color: var(--eco-green) !important;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
-    }
-
-    /* Breadcrumbs */
-    div.breadcrumbs {
-        background: var(--card-bg) !important;
-        backdrop-filter: blur(10px) !important;
-        border-bottom: 1px solid var(--glass-border) !important;
-        padding: 12px 28px !important;
-        color: var(--text-muted) !important;
-        font-size: 13px !important;
-    }
-
-    div.breadcrumbs a {
-        color: var(--eco-green) !important;
+    .button:hover, input[type=submit]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45) !important;
     }
 </style>
 {% endblock %}
@@ -205,9 +276,16 @@
 {% block branding %}
 <h1 id="site-name">
     <a href="{% url 'admin:index' %}">
-        <i class="fa-solid fa-leaf" style="color: #10b981;"></i> EcoRuta Admin
+        <img src="{% static 'dashboard/img/logo.png' %}" alt="EcoRuta Logo" style="height: 36px; width: 36px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);">
+        <span>EcoRuta Admin</span>
     </a>
 </h1>
 {% endblock %}
 
-{% block nav-global %}{% endblock %}
+{% block nav-global %}
+<div style="margin-left: 20px;">
+    <a href="/dashboard/" style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--glass-border); color: #60a5fa; padding: 8px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; text-decoration: none;">
+        <i class="fa-solid fa-arrow-left" style="margin-right: 6px;"></i> Ir al Dashboard Web
+    </a>
+</div>
+{% endblock %}

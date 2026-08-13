@@ -62,3 +62,11 @@ class LogisticaAPITests(TestCase):
         response = self.client.get('/api/logistica/notificaciones/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total'], 1)
+
+    def test_chofer_gamificacion_api(self):
+        self.client.force_authenticate(user=self.user)
+        Jornada.objects.create(vehiculo=self.vehiculo, ruta=self.ruta, chofer=self.chofer, estado='finalizada')
+        response = self.client.get('/api/logistica/chofer/gamificacion/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('puntos_totales', response.data)
+        self.assertIn('insignias', response.data)
