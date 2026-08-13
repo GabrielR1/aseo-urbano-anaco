@@ -299,9 +299,12 @@
 <body>
 
     <nav class="sidebar">
-        <div class="sidebar-brand" style="display: flex; align-items: center; gap: 12px;">
-            <img src="{% static 'dashboard/img/logo.png' %}" alt="EcoRuta Logo" style="height: 38px; width: 38px; border-radius: 10px; object-fit: cover; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);">
-            <span>EcoRuta</span>
+        <div class="sidebar-brand" style="display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
+            <img src="{% static 'dashboard/img/logo.png' %}" alt="EcoRuta Logo" style="height: 44px; width: 44px; border-radius: 12px; object-fit: contain; background: rgba(255,255,255,0.05); padding: 2px;">
+            <div>
+                <span style="font-size: 18px; font-weight: 700; color: #ffffff; display: block; line-height: 1.2;">EcoRuta</span>
+                <span style="font-size: 10px; color: var(--accent-green); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Gestión y Transporte</span>
+            </div>
         </div>
         <a href="{% url 'dashboard_home' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_home' %}active{% endif %}">
             <i class="fa-solid fa-chart-pie"></i> Resumen
@@ -336,7 +339,10 @@
         <header class="header">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <span class="pulsing-badge"></span>
-                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                <div>
+                    <h1 style="margin: 0; font-size: 20px;">{% block page_title %}Dashboard{% endblock %}</h1>
+                    <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Limpiando nuestro presente, para disfrutar el futuro.</span>
+                </div>
             </div>
             <div class="user-profile">
                 <div class="avatar">{{ request.user.username|make_list|first|upper }}</div>
