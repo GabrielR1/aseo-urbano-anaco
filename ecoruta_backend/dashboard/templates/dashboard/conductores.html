@@ -1,65 +1,96 @@
 {% extends 'dashboard/base.html' %}
 
-{% block page_title %}Gestión de Conductores y Personal{% endblock %}
+{% block page_title %}Choferes y Personal Operativo{% endblock %}
 
 {% block content %}
+<!-- Header Bar with Quick Stats & Search -->
 <div class="glass-card" style="margin-bottom: 24px;">
     <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
         <div>
-            <h3 style="margin: 0; color: var(--text-main);">Personal de Conducción Registrado</h3>
-            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px;">Administra los choferes encargados del recorrido de las rutas de recolección</p>
+            <h3 style="margin: 0; color: var(--text-main); font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-id-card" style="color: var(--accent-green);"></i>
+                Personal de Conducción Registrado
+            </h3>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 13px;">
+                Administra los perfiles de los operadores encargados de las jornadas de recolección y sincronización GPS.
+            </p>
         </div>
-        <button onclick="abrirModalCrearChofer()" style="padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
-            <i class="fa-solid fa-user-plus" style="margin-right: 8px;"></i> Guardar Nuevo Conductor
-        </button>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <div class="table-search-bar">
+                <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 13px;"></i>
+                <input type="text" id="searchChoferInput" placeholder="Buscar por nombre, usuario o licencia...">
+            </div>
+            <button onclick="abrirModalCrearChofer()" class="btn-modern btn-primary-green">
+                <i class="fa-solid fa-user-plus"></i> Guardar Nuevo Conductor
+            </button>
+        </div>
     </div>
 </div>
 
-<div class="glass-card">
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+<!-- Table Card -->
+<div class="glass-card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="modern-table" id="choferesTable">
             <thead>
-                <tr style="border-bottom: 1px solid var(--glass-border);">
-                    <th style="padding: 14px; color: var(--text-muted);">Usuario / Nombre</th>
-                    <th style="padding: 14px; color: var(--text-muted);">Nº Licencia</th>
-                    <th style="padding: 14px; color: var(--text-muted);">Teléfono de Contacto</th>
-                    <th style="padding: 14px; color: var(--text-muted);">Rol en Sistema</th>
-                    <th style="padding: 14px; color: var(--text-muted); text-align: center;">Acciones (CRUD)</th>
+                <tr>
+                    <th>Usuario / Nombre</th>
+                    <th>Nº de Licencia</th>
+                    <th>Teléfono de Contacto</th>
+                    <th>Rol en Sistema</th>
+                    <th style="text-align: center;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in choferes %}
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 16px; font-weight: 700; color: var(--accent-green);">
-                        <i class="fa-solid fa-user-gear" style="margin-right: 8px;"></i>
-                        {{ c.usuario.get_full_name|default:c.usuario.username }}
-                        <span style="display: block; font-size: 12px; color: var(--text-muted); font-weight: normal;">@{{ c.usuario.username }}</span>
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 38px; height: 38px; border-radius: 50%; background: #e0f2fe; border: 1px solid #bae6fd; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #0369a1; font-size: 14px; flex-shrink: 0;">
+                                {{ c.usuario.first_name|default:c.usuario.username|make_list|first|upper }}
+                            </div>
+                            <div>
+                                <span style="font-weight: 700; color: var(--text-main); font-size: 14px; display: block;">
+                                    {{ c.usuario.get_full_name|default:c.usuario.username }}
+                                </span>
+                                <span style="font-size: 12px; color: var(--accent-green); font-weight: 600;">@{{ c.usuario.username }}</span>
+                            </div>
+                        </div>
                     </td>
-                    <td style="padding: 16px; font-weight: 600; color: #60a5fa;">{{ c.licencia }}</td>
-                    <td style="padding: 16px; color: var(--text-main);">{{ c.telefono|default:"No registrado" }}</td>
-                    <td style="padding: 16px;">
-                        <span style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: #34d399; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
-                            Chofer / Conductor
+                    <td>
+                        <span style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; font-family: monospace;">
+                            <i class="fa-solid fa-address-card" style="margin-right: 4px;"></i> {{ c.licencia }}
                         </span>
                     </td>
-                    <td style="padding: 16px; text-align: center;">
-                        <div style="display: flex; gap: 8px; justify-content: center;">
+                    <td>
+                        <div style="color: var(--text-secondary); font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-phone" style="color: var(--text-muted); font-size: 11px;"></i>
+                            {{ c.telefono|default:"No registrado" }}
+                        </div>
+                    </td>
+                    <td>
+                        <span style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                            <span class="pulsing-badge"></span> Chofer / Operador
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
                             <button onclick="abrirModalEditarChofer({{ c.id }}, '{{ c.usuario.username|escapejs }}', '{{ c.usuario.first_name|escapejs }}', '{{ c.usuario.last_name|escapejs }}', '{{ c.licencia|escapejs }}', '{{ c.telefono|escapejs }}')" 
-                                    style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--accent-blue); color: #60a5fa; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600;" title="Modificar Conductor">
-                                <i class="fa-solid fa-pen-to-square"></i> Modificar
+                                    class="btn-action-icon" style="background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8;" title="Modificar Datos">
+                                <i class="fa-solid fa-pen-to-square"></i>
                             </button>
                             <button onclick="abrirModalEliminarChofer({{ c.id }}, '{{ c.usuario.username|escapejs }}')" 
-                                    style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600;" title="Eliminar Conductor">
-                                <i class="fa-solid fa-trash-can"></i> Eliminar
+                                    class="btn-action-icon" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;" title="Eliminar Conductor">
+                                <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="5" style="padding: 32px; text-align: center; color: var(--text-muted);">
-                        <i class="fa-solid fa-id-card" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
-                        No hay conductores registrados aún. Presiona <strong>"Guardar Nuevo Conductor"</strong> para agregar el primero.
+                <tr class="empty-row">
+                    <td colspan="5" style="padding: 48px; text-align: center; color: var(--text-muted);">
+                        <i class="fa-solid fa-id-card" style="font-size: 42px; margin-bottom: 14px; display: block; color: var(--text-muted); opacity: 0.4;"></i>
+                        <span style="font-weight: 700; color: var(--text-main); font-size: 15px; display: block; margin-bottom: 4px;">No hay conductores registrados</span>
+                        Presiona <strong>"Guardar Nuevo Conductor"</strong> para agregar el primer miembro del equipo.
                     </td>
                 </tr>
                 {% endfor %}
@@ -71,42 +102,47 @@
 
 {% block scripts %}
 <script>
+    // Inicializar búsqueda instantánea en vivo
+    document.addEventListener('DOMContentLoaded', function() {
+        setupTableSearch('searchChoferInput', 'choferesTable');
+    });
+
     function abrirModalCrearChofer() {
         var content = `
             <form action="{% url 'chofer_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Nombre de Usuario (Login):</label>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre de Usuario (Para Login Móvil):</label>
                     <input type="text" name="username" class="form-input" placeholder="Ej. chofer1" required>
                 </div>
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Contraseña de Acceso:</label>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Contraseña de Acceso:</label>
                     <input type="password" name="password" class="form-input" placeholder="Ej. chofer123" value="chofer123" required>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
-                        <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Nombre:</label>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre:</label>
                         <input type="text" name="first_name" class="form-input" placeholder="Ej. Carlos">
                     </div>
                     <div>
-                        <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Apellido:</label>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Apellido:</label>
                         <input type="text" name="last_name" class="form-input" placeholder="Ej. Pérez">
                     </div>
                 </div>
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Número de Licencia:</label>
-                    <input type="text" name="licencia" class="form-input" placeholder="Ej. LIC-123456" required>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Número de Licencia de Conducir:</label>
+                    <input type="text" name="licencia" class="form-input" placeholder="Ej. LIC-987654" required>
                 </div>
                 <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Teléfono de Contacto:</label>
-                    <input type="text" name="telefono" class="form-input" placeholder="Ej. +58 412-5550199">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Teléfono Celular / WhatsApp:</label>
+                    <input type="text" name="telefono" class="form-input" placeholder="Ej. +58 412-1234567">
                 </div>
-                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #10b981, #059669); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
-                    <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Guardar Conductor
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px;">
+                    <i class="fa-solid fa-user-check"></i> Registrar Conductor en el Sistema
                 </button>
             </form>
         `;
-        openModal('Guardar Nuevo Conductor', content);
+        openModal('<i class="fa-solid fa-user-plus" style="color: var(--accent-green-light);"></i> Guardar Nuevo Conductor', content);
     }
 
     function abrirModalEditarChofer(id, username, firstName, lastName, licencia, telefono) {
@@ -115,33 +151,33 @@
             <form action="${actionUrl}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Usuario (Solo lectura):</label>
-                    <input type="text" class="form-input" value="${username}" disabled style="opacity: 0.6;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-muted); font-size: 13px;">Usuario Registrado (No editable):</label>
+                    <input type="text" class="form-input" value="${username}" disabled style="opacity: 0.6; cursor: not-allowed;">
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
-                        <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Nombre:</label>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre:</label>
                         <input type="text" name="first_name" class="form-input" value="${firstName}">
                     </div>
                     <div>
-                        <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Apellido:</label>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Apellido:</label>
                         <input type="text" name="last_name" class="form-input" value="${lastName}">
                     </div>
                 </div>
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Número de Licencia:</label>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Número de Licencia:</label>
                     <input type="text" name="licencia" class="form-input" value="${licencia}" required>
                 </div>
                 <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Teléfono de Contacto:</label>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Teléfono:</label>
                     <input type="text" name="telefono" class="form-input" value="${telefono}">
                 </div>
-                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
-                    <i class="fa-solid fa-pen-to-square" style="margin-right: 8px;"></i> Modificar Conductor
+                <button type="submit" class="btn-modern" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-size: 15px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
+                    <i class="fa-solid fa-pen-to-square"></i> Actualizar Ficha de Conductor
                 </button>
             </form>
         `;
-        openModal('Modificar Datos del Conductor', content);
+        openModal('<i class="fa-solid fa-user-pen" style="color: #60a5fa;"></i> Modificar Datos de Conductor', content);
     }
 
     function abrirModalEliminarChofer(id, username) {
@@ -149,22 +185,25 @@
         var content = `
             <form action="${actionUrl}" method="post" style="text-align: center;">
                 {% csrf_token %}
-                <div style="font-size: 50px; color: var(--accent-red); margin-bottom: 16px;">
+                <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; color: var(--accent-red-light); font-size: 26px;">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
-                <p style="font-size: 16px; color: var(--text-main); margin-bottom: 24px;">
-                    ¿Estás seguro de que deseas eliminar al conductor <strong style="color: var(--accent-red);">${username}</strong>?
-                    <br><span style="font-size: 13px; color: var(--text-muted);">Se eliminará también su cuenta de usuario en el sistema.</span>
+                <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 800;">¿Eliminar este conductor?</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5;">
+                    Estás a punto de dar de baja al chofer <strong style="color: #dc2626;">${username}</strong>.<br>
+                    Se removerá también su cuenta de acceso y su histórico vinculado.
                 </p>
                 <div style="display: flex; gap: 12px;">
-                    <button type="button" onclick="closeModal()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer;">Cancelar</button>
-                    <button type="submit" style="flex: 1; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">
-                        <i class="fa-solid fa-trash-can" style="margin-right: 6px;"></i> Eliminar
+                    <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #e2e8f0; color: #334155;">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-modern" style="flex: 1; background: #dc2626; color: white;">
+                        <i class="fa-solid fa-trash-can"></i> Sí, Eliminar
                     </button>
                 </div>
             </form>
         `;
-        openModal('Confirmar Eliminación', content);
+        openModal('<i class="fa-solid fa-user-xmark" style="color: var(--accent-red-light);"></i> Confirmar Baja de Personal', content);
     }
 </script>
 {% endblock %}

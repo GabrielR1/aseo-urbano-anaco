@@ -50,8 +50,8 @@ class _IncidentScreenState extends State<IncidentScreen> {
 
       request.fields['jornada'] = widget.jornadaId.toString();
       request.fields['descripcion'] = _descController.text;
-      request.fields['latitud'] = position.latitude.toString();
-      request.fields['longitud'] = position.longitude.toString();
+      request.fields['latitud'] = position.latitude.toStringAsFixed(6);
+      request.fields['longitud'] = position.longitude.toStringAsFixed(6);
       
       var pic = await http.MultipartFile.fromPath('foto', _image!.path);
       request.files.add(pic);

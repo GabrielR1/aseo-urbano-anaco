@@ -1,0 +1,106 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block coltype %}colMS{% endblock %}
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+<!-- Banner de Identidad Institucional -->
+<div style="background: #ffffff; border: 1px solid var(--card-border); border-radius: 10px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-building-columns" style="color: var(--accent-green); font-size: 22px;"></i>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #0f172a;">
+                Alcaldía del Municipio Bolivariano de Anaco
+            </h2>
+        </div>
+        <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 13px;">
+            Dirección de Aseo Urbano • Base de Datos y Configuración Operativa del Sistema
+        </p>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div style="background: #f8fafc; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px 16px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Estado</div>
+            <div style="font-size: 14px; font-weight: 800; color: var(--accent-green);"><i class="fa-solid fa-circle-check"></i> En Servicio</div>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px 16px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Zona</div>
+            <div style="font-size: 14px; font-weight: 800; color: #0f172a;">Anaco, Anzoátegui</div>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start;">
+    <!-- Columna Principal: Módulos del Sistema -->
+    <div id="content-main">
+        {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+    </div>
+
+    <!-- Columna Lateral: Registro de Acciones Recientes -->
+    <div id="content-related" style="margin-left: 0;">
+        <div class="module" id="recent-actions-module" style="background: #ffffff; border: 1px solid var(--card-border); border-radius: 10px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); overflow: hidden;">
+            <h2 style="background: #f8fafc; color: #0f172a; font-size: 13.5px; font-weight: 700; padding: 14px 18px; border-bottom: 1px solid var(--card-border-subtle); border-left: 4px solid var(--accent-blue); margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-blue);"></i>
+                <span>Actividades Recientes</span>
+            </h2>
+            
+            <div style="padding: 6px 16px;">
+                {% load log %}
+                {% get_admin_log 8 as admin_log for_user user %}
+                {% if not admin_log %}
+                    <p style="padding: 18px 0; color: var(--text-muted); font-size: 13px; text-align: center; margin: 0;">
+                        No hay acciones registradas recientemente.
+                    </p>
+                {% else %}
+                    <ul class="actionlist" style="list-style: none; padding: 0; margin: 0;">
+                    {% for entry in admin_log %}
+                        <li style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                                {% if entry.is_addition %}
+                                    <span style="background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">
+                                        <i class="fa-solid fa-plus"></i> Añadido
+                                    </span>
+                                {% elif entry.is_change %}
+                                    <span style="background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">
+                                        <i class="fa-solid fa-pen"></i> Editado
+                                    </span>
+                                {% elif entry.is_deletion %}
+                                    <span style="background: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">
+                                        <i class="fa-solid fa-trash"></i> Eliminado
+                                    </span>
+                                {% endif %}
+                                <span style="font-size: 11.5px; color: var(--text-muted);">
+                                    {{ entry.action_time|date:"d/m H:i" }}
+                                </span>
+                            </div>
+
+                            {% if entry.is_deletion or not entry.get_admin_url %}
+                                <span style="font-weight: 600; color: #0f172a;">{{ entry.object_repr }}</span>
+                            {% else %}
+                                <a href="{{ entry.get_admin_url }}" style="font-weight: 600; color: var(--accent-blue); text-decoration: none;">
+                                    {{ entry.object_repr }}
+                                </a>
+                            {% endif %}
+                            
+                            {% if entry.content_type %}
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                    {{ entry.content_type.name|capfirst }}
+                                </div>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+            
+            <div style="padding: 12px 16px; background: #f8fafc; border-top: 1px solid var(--card-border-subtle); text-align: center;">
+                <a href="/dashboard/" style="font-size: 12px; font-weight: 700; color: var(--accent-green); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-chart-pie"></i> Ir al Dashboard Operativo
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

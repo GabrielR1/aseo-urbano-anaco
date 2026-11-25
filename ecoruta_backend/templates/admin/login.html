@@ -3,33 +3,16 @@
 
 {% block extrastyle %}
 {{ block.super }}
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    :root {
-        --eco-green: #10b981;
-        --eco-dark-green: #059669;
-        --bg-dark: #090d16;
-        --card-bg: rgba(15, 23, 42, 0.75);
-        --text-light: #f8fafc;
-        --text-muted: #94a3b8;
-        --glass-border: rgba(16, 185, 129, 0.25);
-    }
-
     body.login {
         margin: 0;
         padding: 0;
-        font-family: 'Outfit', sans-serif;
-        background-color: var(--bg-dark);
-        color: var(--text-light);
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
         display: flex;
         align-items: center;
         justify-content: center;
         min-height: 100vh;
-        background-image: 
-            radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.25) 0%, transparent 40%),
-            radial-gradient(circle at 90% 80%, rgba(5, 150, 105, 0.2) 0%, transparent 45%),
-            radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.9), #090d16);
     }
 
     #container {
@@ -37,7 +20,7 @@
         border: none !important;
         box-shadow: none !important;
         width: 100%;
-        max-width: 440px;
+        max-width: 420px;
         padding: 20px;
         box-sizing: border-box;
     }
@@ -47,17 +30,13 @@
     }
 
     .login-card {
-        background: var(--card-bg);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid var(--glass-border);
-        border-radius: 24px;
-        padding: 44px 36px;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5),
-                    0 0 30px rgba(16, 185, 129, 0.15);
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 36px 32px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
         text-align: center;
         position: relative;
-        overflow: hidden;
     }
 
     .login-card::before {
@@ -67,58 +46,55 @@
         left: 0;
         right: 0;
         height: 4px;
-        background: linear-gradient(90deg, #10b981, #3b82f6, #10b981);
+        background: #15803d;
+        border-radius: 12px 12px 0 0;
     }
 
     .brand-header {
-        margin-bottom: 32px;
+        margin-bottom: 28px;
     }
 
     .brand-icon {
-        width: 64px;
-        height: 64px;
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.3);
-        border-radius: 20px;
+        width: 58px;
+        height: 58px;
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 16px auto;
-        color: var(--eco-green);
-        font-size: 30px;
-        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
+        margin: 0 auto 14px auto;
+        color: #15803d;
+        font-size: 26px;
     }
 
     .brand-title {
-        font-size: 26px;
-        font-weight: 700;
-        color: var(--text-light);
-        margin: 0 0 6px 0;
-        letter-spacing: -0.5px;
+        font-size: 22px;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 4px 0;
     }
 
     .brand-subtitle {
-        color: var(--text-muted);
-        font-size: 14px;
+        color: #64748b;
+        font-size: 13px;
         margin: 0;
     }
 
     .form-row {
-        margin-bottom: 22px;
+        margin-bottom: 18px;
         text-align: left;
         padding: 0 !important;
-        float: none !important;
-        clear: both;
+        border: none !important;
     }
 
     .form-row label {
         display: block;
-        margin-bottom: 8px;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--text-muted);
+        margin-bottom: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
     .input-wrapper {
@@ -127,132 +103,86 @@
 
     .input-wrapper i.input-icon {
         position: absolute;
-        left: 16px;
+        left: 14px;
         top: 50%;
         transform: translateY(-50%);
-        color: var(--text-muted);
-        font-size: 16px;
-        transition: color 0.3s;
+        color: #94a3b8;
+        font-size: 15px;
     }
 
     .login-card input[type="text"],
     .login-card input[type="password"] {
         width: 100%;
-        padding: 14px 16px 14px 44px;
-        background: rgba(0, 0, 0, 0.35);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 14px;
-        color: #ffffff;
-        font-size: 15px;
-        font-family: 'Outfit', sans-serif;
+        padding: 10px 14px 10px 40px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        color: #0f172a;
+        font-size: 14px;
         box-sizing: border-box;
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
     }
 
     .login-card input[type="text"]:focus,
     .login-card input[type="password"]:focus {
+        border-color: #15803d;
         outline: none;
-        border-color: var(--eco-green);
-        background: rgba(16, 185, 129, 0.05);
-        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+        box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
     }
 
-    .toggle-password {
-        position: absolute;
-        right: 16px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-muted);
-        cursor: pointer;
-        font-size: 16px;
-        padding: 4px;
-        transition: color 0.2s;
-    }
-
-    .toggle-password:hover {
-        color: var(--eco-green);
-    }
-
-    .submit-row {
-        margin-top: 28px;
+    .login-card .submit-row {
+        margin-top: 24px;
         padding: 0 !important;
         background: transparent !important;
         border: none !important;
+        box-shadow: none !important;
     }
 
-    .submit-row input[type="submit"] {
+    .login-card .submit-row input[type="submit"] {
         width: 100%;
-        padding: 15px;
-        background: linear-gradient(135deg, #10b981, #059669);
-        color: #ffffff;
-        border: none;
-        border-radius: 14px;
-        font-size: 16px;
-        font-weight: 600;
-        font-family: 'Outfit', sans-serif;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        background: #15803d !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
     }
 
-    .submit-row input[type="submit"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 14px 30px rgba(16, 185, 129, 0.4);
-    }
-
-    .forgot-link-container {
-        margin-top: 24px;
-        padding-top: 20px;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .forgot-link {
-        color: var(--text-muted);
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: 500;
-        transition: color 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .forgot-link:hover {
-        color: var(--eco-green);
+    .login-card .submit-row input[type="submit"]:hover {
+        background: #166534 !important;
     }
 
     .errornote {
-        background: rgba(239, 68, 68, 0.15) !important;
-        border: 1px solid rgba(239, 68, 68, 0.4) !important;
-        border-radius: 12px !important;
-        color: #fca5a5 !important;
-        padding: 12px 16px !important;
-        font-size: 14px !important;
-        margin-bottom: 24px !important;
+        background: #fee2e2 !important;
+        border: 1px solid #fecaca !important;
+        border-radius: 8px !important;
+        color: #b91c1c !important;
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+        margin-bottom: 20px !important;
+        text-align: left;
     }
 </style>
 {% endblock %}
 
 {% block bodyclass %}{{ block.super }} login{% endblock %}
-
 {% block usertools %}{% endblock %}
-
 {% block nav-global %}{% endblock %}
-
 {% block nav-sidebar %}{% endblock %}
-
 {% block content_title %}{% endblock %}
-
 {% block breadcrumbs %}{% endblock %}
 
 {% block content %}
 <div class="login-card">
     <div class="brand-header">
         <div class="brand-icon">
-            <i class="fa-solid fa-leaf"></i>
+            <i class="fa-solid fa-building-columns"></i>
         </div>
-        <h1 class="brand-title">EcoRuta</h1>
-        <p class="brand-subtitle">Administración Ecológica de Rutas</p>
+        <h1 class="brand-title">Aseo Urbano Anaco</h1>
+        <p class="brand-subtitle">Acceso Administrativo al Sistema</p>
     </div>
 
     {% if form.errors and not form.non_field_errors %}
@@ -274,7 +204,7 @@
             <label for="id_username">{% translate 'Username' %}:</label>
             <div class="input-wrapper">
                 <i class="fa-solid fa-user input-icon"></i>
-                <input type="text" name="username" autofocus maxlength="254" required id="id_username" placeholder="Ingresa tu usuario">
+                <input type="text" name="username" autofocus maxlength="254" required id="id_username" placeholder="Usuario administrador">
             </div>
         </div>
         
@@ -282,42 +212,19 @@
             <label for="id_password">{% translate 'Password' %}:</label>
             <div class="input-wrapper">
                 <i class="fa-solid fa-lock input-icon"></i>
-                <input type="password" name="password" required id="id_password" placeholder="Ingresa tu contraseña">
-                <i class="fa-solid fa-eye toggle-password" id="toggleAdminPassword" title="Mostrar/ocultar contraseña"></i>
+                <input type="password" name="password" required id="id_password" placeholder="Contraseña">
             </div>
         </div>
 
         <div class="submit-row">
-            <input type="submit" value="{% translate 'Log in' %}">
+            <input type="submit" value="Iniciar Sesión">
         </div>
     </form>
-
-    <div class="forgot-link-container">
-        <a href="{% url 'password_reset' %}" class="forgot-link">
-            <i class="fa-solid fa-key"></i> ¿Olvidaste tu contraseña?
+    
+    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+        <a href="/dashboard/" style="color: #1d4ed8; text-decoration: none; font-weight: 600;">
+            <i class="fa-solid fa-arrow-left"></i> Volver al Portal de Supervisión
         </a>
     </div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const toggleBtn = document.querySelector('#toggleAdminPassword');
-        const passwordInput = document.querySelector('#id_password');
-
-        if (toggleBtn && passwordInput) {
-            toggleBtn.addEventListener('click', function() {
-                const isPassword = passwordInput.getAttribute('type') === 'password';
-                passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
-                
-                if (isPassword) {
-                    this.classList.remove('fa-eye');
-                    this.classList.add('fa-eye-slash');
-                } else {
-                    this.classList.remove('fa-eye-slash');
-                    this.classList.add('fa-eye');
-                }
-            });
-        }
-    });
-</script>
 {% endblock %}

@@ -1,64 +1,590 @@
 {% extends 'dashboard/base.html' %}
+{% load static %}
+{% load l10n %}
 
-{% block page_title %}Monitoreo en Vivo de Rutas{% endblock %}
+{% block page_title %}Monitoreo GPS en Tiempo Real{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<link rel="stylesheet" href="{% static 'dashboard/vendor/leaflet/leaflet.css' %}">
+<script src="{% static 'dashboard/vendor/leaflet/leaflet.js' %}"></script>
 <style>
+    .map-wrapper {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 20px;
+        align-items: stretch;
+    }
+
     #map {
-        height: 600px;
+        height: 620px;
+        min-height: 620px;
         width: 100%;
-        border-radius: 12px;
-        border: 1px solid var(--glass-border);
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        background: #f1f5f9;
+        position: relative;
+        z-index: 1;
+    }
+
+    .truck-list-card {
+        background: #ffffff;
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 18px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        max-height: 620px;
+    }
+
+    .truck-item {
+        background: #f8fafc;
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .truck-item:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+    }
+
+    .truck-item.selected {
+        border-color: var(--accent-blue);
+        background: #eff6ff;
+    }
+
+    .truck-item.no-gps {
+        opacity: 0.85;
+        border-style: dashed;
+    }
+
+    .custom-truck-pin {
+        background: #15803d;
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .custom-incident-pin {
+        background: #dc2626;
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        font-weight: 700;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #16a34a;
+        animation: livePulse 1.5s infinite;
+    }
+
+    @keyframes livePulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(1.25); }
+    }
+
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        border: 1px solid #cbd5e1;
+    }
+
+    @media (max-width: 900px) {
+        .map-wrapper {
+            grid-template-columns: 1fr;
+        }
+        #map {
+            height: 450px;
+            min-height: 450px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="glass-card" style="padding: 10px; margin-bottom: 20px;">
-    <div style="display: flex; gap: 20px; align-items: center; padding: 0 10px;">
-        <div><span style="display: inline-block; width: 12px; height: 12px; background: blue; border-radius: 50%; margin-right: 5px;"></span> Camiones Activos</div>
-        <div><span style="display: inline-block; width: 12px; height: 12px; background: red; border-radius: 50%; margin-right: 5px;"></span> Incidencias</div>
-        <div style="flex-grow: 1;"></div>
-        <div style="color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-clock-rotate-left"></i> Última actualización: hace un momento</div>
+<!-- Header Bar -->
+<div class="glass-card" style="padding: 16px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span>
+                <i class="fa-solid fa-satellite-dish" style="color: var(--accent-green); margin-right: 4px;"></i>
+                Monitoreo Satelital GPS en Vivo
+            </span>
+            <span id="liveStatusPill" class="live-pill">
+                <span class="live-dot"></span>
+                <span id="liveStatusText">En vivo • Conectando...</span>
+            </span>
+        </h3>
+        <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 13px;">
+            Solo se muestran posiciones reales recibidas desde el GPS de los teléfonos de los choferes (actualización automática c/4s).
+        </p>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="{% url 'dashboard_chofer_gps' %}" class="btn-modern" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8;">
+            <i class="fa-solid fa-mobile-screen-button"></i> Abrir Modo Chofer GPS
+        </a>
+        <button onclick="centrarEnFlota()" class="btn-modern" style="background: #ffffff; border: 1px solid var(--card-border); color: #334155;">
+            <i class="fa-solid fa-crosshairs" style="color: #2563eb;"></i> Centrar Mapa
+        </button>
+        <button onclick="abrirModalAsignarDesdeMapa()" class="btn-modern btn-primary-green">
+            <i class="fa-solid fa-plus-circle"></i> Asignar Ruta
+        </button>
     </div>
 </div>
 
-<div class="glass-card" style="padding: 0; overflow: hidden;">
-    <div id="map"></div>
+<!-- Map and Units Directory Grid -->
+<div class="map-wrapper">
+    <!-- Left: Units Directory -->
+    <div class="truck-list-card">
+        <div style="min-height: 0; display: flex; flex-direction: column; flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--card-border); flex-wrap: wrap; gap: 6px;">
+                <div>
+                    <span style="font-size: 13px; font-weight: 700; color: #0f172a;">Unidades en Servicio</span>
+                    <span id="unitsSummaryCount" style="font-size: 11.5px; color: var(--text-muted); font-weight: 600; display: block;">
+                        {{ total_con_gps }} con señal GPS / {{ total_camiones }} asignadas
+                    </span>
+                </div>
+                <button onclick="actualizarTelemetriaEnVivo()" class="btn-modern" style="padding: 4px 10px; font-size: 11.5px; background: #f8fafc; border: 1px solid var(--card-border); color: #334155;">
+                    <i class="fa-solid fa-rotate"></i> Actualizar
+                </button>
+            </div>
+
+            <div id="truckListContainer" style="overflow-y: auto; flex: 1; padding-right: 4px;">
+                <!-- Se actualiza dinámicamente con telemetría real -->
+            </div>
+        </div>
+
+        <!-- Incidents footer count -->
+        <div style="padding-top: 12px; margin-top: 10px; border-top: 1px solid var(--card-border); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+            <span><i class="fa-solid fa-triangle-exclamation" style="color: #dc2626; margin-right: 4px;"></i> Incidencias con GPS:</span>
+            <span id="incidentsFooterCount" style="font-weight: 700; color: {% if total_incidencias > 0 %}#dc2626{% else %}#15803d{% endif %};">
+                {{ total_incidencias }} registrada(s)
+            </span>
+        </div>
+    </div>
+
+    <!-- Right: Live Leaflet Map -->
+    <div>
+        <div id="map"></div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    let map;
+    let selectedJornadaId = null;
+    let hasAutoCentered = false;
+    const truckMarkers = {};
+    const truckTrails = {};
+    const incidentMarkers = [];
+
+    const ANACO_CENTER = [9.4420, -64.4580];
+
     document.addEventListener('DOMContentLoaded', function() {
-        // Inicializar el mapa en Anaco (Lat: 9.4389, Lng: -64.4589 aprox)
-        var map = L.map('map').setView([9.4389, -64.4589], 13);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-
-        // Simulación de un camión en ruta
-        var truckIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/819/819873.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-        });
-
-        var marker = L.marker([9.4389, -64.4589], {icon: truckIcon}).addTo(map);
-        marker.bindPopup("<b>Camión A7B-123</b><br>Ruta Centro<br>Chofer: Juan Pérez");
-
-        // Simulación de incidencia
-        var alertIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/564/564619.png',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-        });
-        var incidentMarker = L.marker([9.4450, -64.4600], {icon: alertIcon}).addTo(map);
-        incidentMarker.bindPopup("<b>Incidencia: Vía Cerrada</b><br>Hace 10 min");
+        initMap();
+        actualizarTelemetriaEnVivo();
+        setInterval(actualizarTelemetriaEnVivo, 4000);
     });
+
+    function initMap() {
+        if (typeof L === 'undefined') {
+            console.error('Leaflet no está disponible.');
+            return;
+        }
+
+        if (L.Icon && L.Icon.Default) {
+            delete L.Icon.Default.prototype._getIconUrl;
+            L.Icon.Default.mergeOptions({
+                iconRetinaUrl: "{% static 'dashboard/vendor/leaflet/images/marker-icon-2x.png' %}",
+                iconUrl: "{% static 'dashboard/vendor/leaflet/images/marker-icon.png' %}",
+                shadowUrl: "{% static 'dashboard/vendor/leaflet/images/marker-shadow.png' %}"
+            });
+        }
+
+        map = L.map('map', {
+            center: ANACO_CENTER,
+            zoom: 14,
+            zoomControl: true
+        });
+
+        const callesLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            subdomains: 'abcd',
+            maxZoom: 20,
+            attribution: '© OpenStreetMap • CARTO • Aseo Urbano Anaco'
+        });
+
+        const esriLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '© Esri • Aseo Urbano Anaco'
+        });
+
+        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '© Esri Satelital • Aseo Urbano Anaco'
+        });
+
+        callesLayer.addTo(map);
+
+        L.control.layers({
+            "Mapa Urbano": callesLayer,
+            "Calles Detalladas (Esri)": esriLayer,
+            "Vista Satelital": satLayer
+        }, null, { position: 'topright' }).addTo(map);
+
+        setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+    }
+
+    function crearIconoUnidad(placa, enCurso) {
+        const isTrimoto = placa && placa.includes('TM');
+        const bgColor = isTrimoto ? '#b45309' : (enCurso ? '#15803d' : '#2563eb');
+        const iconClass = isTrimoto ? 'fa-motorcycle' : 'fa-truck';
+        return L.divIcon({
+            className: 'custom-pin-container',
+            html: `<div class="custom-truck-pin" style="background:${bgColor};"><i class="fa-solid ${iconClass}"></i></div>`,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+            popupAnchor: [0, -18]
+        });
+    }
+
+    function crearIconoIncidencia() {
+        return L.divIcon({
+            className: 'custom-pin-container',
+            html: '<div class="custom-incident-pin"><i class="fa-solid fa-triangle-exclamation"></i></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+            popupAnchor: [0, -16]
+        });
+    }
+
+    function escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    async function actualizarTelemetriaEnVivo() {
+        try {
+            const resp = await fetch('/api/logistica/monitoreo_en_vivo/', {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+
+            const camiones = data.camiones_activos || [];
+            const incidencias = data.incidencias || [];
+
+            document.getElementById('liveStatusText').textContent = `En vivo • ${data.hora_servidor || ''}`;
+            document.getElementById('unitsSummaryCount').textContent =
+                `${data.total_con_gps || 0} con señal GPS / ${camiones.length} asignadas`;
+
+            renderizarListaUnidades(camiones);
+            actualizarMarcadoresMapa(camiones, incidencias);
+        } catch (err) {
+            console.error('Error actualizando telemetría:', err);
+            document.getElementById('liveStatusText').textContent = 'Reconectando...';
+        }
+    }
+
+    function renderizarListaUnidades(camiones) {
+        const container = document.getElementById('truckListContainer');
+        if (!camiones.length) {
+            container.innerHTML = `
+                <div style="text-align: center; color: var(--text-muted); padding: 28px 12px; font-size: 13px;">
+                    <i class="fa-solid fa-truck-fast" style="font-size: 24px; color: #cbd5e1; display: block; margin-bottom: 8px;"></i>
+                    No hay jornadas asignadas en este momento.<br>
+                    Pulsa <b>"Asignar Ruta"</b> para crear una y probar desde el teléfono.
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        camiones.forEach(c => {
+            const isTrimoto = c.placa && c.placa.includes('TM');
+            const isSelected = selectedJornadaId === c.jornada_id;
+            const badgeHtml = c.tiene_gps
+                ? `<span style="font-size: 10.5px; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: #dcfce7; color: #15803d;">GPS Activo</span>`
+                : `<span style="font-size: 10.5px; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: #fef3c7; color: #b45309;">Esperando GPS</span>`;
+
+            const telemetryHtml = c.tiene_gps
+                ? `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; font-size:11px; color:#334155;">
+                        <span><i class="fa-solid fa-gauge-high" style="color:#2563eb;"></i> <b>${c.velocidad_kmh}</b> km/h</span>
+                        <span><i class="fa-solid fa-route" style="color:#15803d;"></i> <b>${c.distancia_real_km}</b> km</span>
+                        <span><i class="fa-regular fa-clock" style="color:#64748b;"></i> ${c.ultima_actualizacion || ''}</span>
+                   </div>`
+                : `<div style="margin-top:6px; font-size:11px; color:#94a3b8;">
+                        <i class="fa-solid fa-mobile-screen"></i> Aún no transmite señal desde el teléfono
+                   </div>`;
+
+            html += `
+                <div class="truck-item ${isSelected ? 'selected' : ''} ${c.tiene_gps ? '' : 'no-gps'}"
+                     onclick="enfocarUnidad(${c.jornada_id}, ${c.tiene_gps ? c.latitud : 'null'}, ${c.tiene_gps ? c.longitud : 'null'})">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-family: monospace; font-weight: 700; font-size: 12px; color: #1d4ed8; background: #dbeafe; padding: 2px 7px; border-radius: 4px; border: 1px solid #bfdbfe;">
+                                ${escapeHtml(c.placa)}
+                            </span>
+                            <span style="font-size: 10px; font-weight: 700; color: ${isTrimoto ? '#b45309' : '#1d4ed8'}; background: ${isTrimoto ? '#fef3c7' : '#eff6ff'}; padding: 1px 5px; border-radius: 3px;">
+                                <i class="fa-solid ${isTrimoto ? 'fa-motorcycle' : 'fa-truck'}"></i> ${isTrimoto ? 'Trimoto' : 'Camión'}
+                            </span>
+                        </div>
+                        ${badgeHtml}
+                    </div>
+                    <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 4px;">
+                        ${escapeHtml(c.ruta)}
+                    </div>
+                    <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                        <i class="fa-solid fa-user" style="margin-right: 4px;"></i> ${escapeHtml(c.chofer)} • ${escapeHtml(c.estado_display)}
+                    </div>
+                    ${telemetryHtml}
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    function actualizarMarcadoresMapa(camiones, incidencias) {
+        if (!map) return;
+
+        const idsVigentes = new Set();
+        const coordsConGps = [];
+
+        camiones.forEach(c => {
+            if (!c.tiene_gps || c.latitud === null || c.longitud === null) return;
+
+            idsVigentes.add(c.jornada_id);
+            const pos = [c.latitud, c.longitud];
+            coordsConGps.push(pos);
+
+            const isTrimoto = c.placa && c.placa.includes('TM');
+            const unitType = isTrimoto ? 'Trimoto' : 'Camión';
+            const popupHtml = `
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; min-width: 210px;">
+                    <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">
+                        ${unitType}: ${escapeHtml(c.placa)} — ${escapeHtml(c.modelo)}
+                    </div>
+                    <div style="font-size: 12px; color: #475569; margin-bottom: 2px;"><b>Ruta:</b> ${escapeHtml(c.ruta)}</div>
+                    <div style="font-size: 12px; color: #475569; margin-bottom: 2px;"><b>Chofer:</b> ${escapeHtml(c.chofer)}</div>
+                    <div style="font-size: 12px; color: #0f172a; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
+                        <b>Velocidad:</b> ${c.velocidad_kmh} km/h &nbsp;|&nbsp; <b>Recorrido:</b> ${c.distancia_real_km} km<br>
+                        <b>Precisión GPS:</b> ${c.precision_metros !== null ? '±' + c.precision_metros + ' m' : 'N/D'} &nbsp;|&nbsp; <b>Puntos:</b> ${c.puntos_count}<br>
+                        <span style="font-size: 11px; color: #15803d; font-weight: 700;">Última señal: ${c.ultima_actualizacion || ''}</span>
+                    </div>
+                </div>
+            `;
+
+            if (truckMarkers[c.jornada_id]) {
+                truckMarkers[c.jornada_id].setLatLng(pos);
+                truckMarkers[c.jornada_id].setPopupContent(popupHtml);
+            } else {
+                const marker = L.marker(pos, { icon: crearIconoUnidad(c.placa, c.estado === 'en_curso') }).addTo(map);
+                marker.bindPopup(popupHtml);
+                truckMarkers[c.jornada_id] = marker;
+            }
+
+            // Dibujar trayectoria real GPS (polyline)
+            if (c.trayectoria && c.trayectoria.length > 1) {
+                if (truckTrails[c.jornada_id]) {
+                    truckTrails[c.jornada_id].setLatLngs(c.trayectoria);
+                } else {
+                    truckTrails[c.jornada_id] = L.polyline(c.trayectoria, {
+                        color: isTrimoto ? '#d97706' : '#16a34a',
+                        weight: 4,
+                        opacity: 0.85
+                    }).addTo(map);
+                }
+            }
+
+            // Si el usuario tiene esta unidad seleccionada, seguir suavemente su movimiento
+            if (selectedJornadaId === c.jornada_id) {
+                map.panTo(pos, { animate: true, duration: 0.6 });
+            }
+        });
+
+        // Limpiar marcadores de jornadas ya finalizadas o eliminadas
+        Object.keys(truckMarkers).forEach(idKey => {
+            const idNum = parseInt(idKey, 10);
+            if (!idsVigentes.has(idNum)) {
+                map.removeLayer(truckMarkers[idKey]);
+                delete truckMarkers[idKey];
+                if (truckTrails[idKey]) {
+                    map.removeLayer(truckTrails[idKey]);
+                    delete truckTrails[idKey];
+                }
+            }
+        });
+
+        // Auto-centrar la primera vez si hay al menos una unidad transmitiendo GPS real
+        if (!hasAutoCentered && coordsConGps.length > 0) {
+            hasAutoCentered = true;
+            if (coordsConGps.length === 1) {
+                map.setView(coordsConGps[0], 16);
+            } else {
+                map.fitBounds(L.latLngBounds(coordsConGps).pad(0.2));
+            }
+        }
+
+        // Actualizar incidencias reales con coordenadas GPS
+        incidentMarkers.forEach(m => map.removeLayer(m));
+        incidentMarkers.length = 0;
+
+        let incConGps = 0;
+        const incIcon = crearIconoIncidencia();
+        incidencias.forEach(inc => {
+            if (inc.latitud === null || inc.longitud === null) return;
+            incConGps++;
+            const fotoHtml = inc.foto_url
+                ? `<div style="margin-top:6px;"><img src="${escapeHtml(inc.foto_url)}" style="width:100%; max-width:200px; border-radius:6px; border:1px solid #cbd5e1;"></div>`
+                : '';
+            const popupIncHtml = `
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; max-width: 220px;">
+                    <div style="font-weight: 800; font-size: 13px; color: #b91c1c; margin-bottom: 4px;">
+                        Incidencia (${escapeHtml(inc.vehiculo_placa)})
+                    </div>
+                    <div style="font-size: 12px; color: #334155;">${escapeHtml(inc.descripcion)}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 4px;">${escapeHtml(inc.timestamp)} • ${escapeHtml(inc.estado_display)}</div>
+                    ${fotoHtml}
+                </div>
+            `;
+            const m = L.marker([inc.latitud, inc.longitud], { icon: incIcon }).addTo(map).bindPopup(popupIncHtml);
+            incidentMarkers.push(m);
+        });
+
+        const footerCount = document.getElementById('incidentsFooterCount');
+        if (footerCount) {
+            footerCount.textContent = `${incConGps} en mapa (${incidencias.length} total)`;
+        }
+    }
+
+    function enfocarUnidad(jornadaId, lat, lng) {
+        selectedJornadaId = jornadaId;
+        if (lat !== null && lng !== null && map) {
+            map.flyTo([lat, lng], 17, { duration: 0.8 });
+            if (truckMarkers[jornadaId]) {
+                setTimeout(() => truckMarkers[jornadaId].openPopup(), 850);
+            }
+        }
+        actualizarTelemetriaEnVivo();
+    }
+
+    function centrarEnFlota() {
+        selectedJornadaId = null;
+        const coords = Object.values(truckMarkers).map(m => m.getLatLng());
+        if (coords.length === 1) {
+            map.flyTo(coords[0], 16, { duration: 0.8 });
+        } else if (coords.length > 1) {
+            map.fitBounds(L.latLngBounds(coords).pad(0.2));
+        } else {
+            map.flyTo(ANACO_CENTER, 14, { duration: 0.8 });
+        }
+    }
+
+    function abrirModalAsignarDesdeMapa() {
+        const content = `
+            <form action="{% url 'jornada_crear' %}" method="post" style="text-align: left;">
+                {% csrf_token %}
+                <input type="hidden" name="next_url" value="{% url 'dashboard_mapa' %}">
+
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;">
+                    <i class="fa-solid fa-satellite-dish" style="color: #2563eb; font-size: 18px; margin-top: 2px;"></i>
+                    <div style="font-size: 12.5px; color: #1e40af; line-height: 1.4;">
+                        <strong>Seguimiento satelital real por teléfono móvil:</strong><br>
+                        Al asignar la jornada, el chofer abre <strong>/chofer/</strong> en su celular (o la app Flutter) y su GPS real aparecerá en este mapa en vivo.
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        1. Ruta de Recolección:
+                    </label>
+                    <select name="ruta" class="form-select" required>
+                        {% for r in rutas %}
+                        <option value="{{ r.id }}">{{ r.nombre }} [{{ r.zona|default:"Sector General" }}]</option>
+                        {% empty %}
+                        <option value="">No hay rutas registradas</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        2. Vehículo / Camión Asignado:
+                    </label>
+                    <select name="vehiculo" class="form-select" required>
+                        {% for v in vehiculos %}
+                        <option value="{{ v.id }}">[{{ v.placa }}] {{ v.marca }} {{ v.modelo }} ({{ v.capacidad_toneladas }} Ton)</option>
+                        {% empty %}
+                        <option value="">No hay vehículos registrados</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        3. Chofer a Cargo (Teléfono GPS):
+                    </label>
+                    <select name="chofer" class="form-select" required>
+                        {% for c in choferes %}
+                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }} [Lic: {{ c.licencia }}]</option>
+                        {% empty %}
+                        <option value="">No hay choferes disponibles</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 18px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        4. Fecha de Ejecución:
+                    </label>
+                    <input type="date" name="fecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" required>
+                </div>
+
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px; font-weight: 700;">
+                    <i class="fa-solid fa-check-double"></i> Asignar y Confirmar Recorrido
+                </button>
+            </form>
+        `;
+        openModal('<i class="fa-solid fa-satellite-dish" style="color: var(--accent-green);"></i> Asignar Recorrido para Monitoreo', content);
+    }
 </script>
 {% endblock %}

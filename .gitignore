@@ -11,6 +11,7 @@ __pycache__/
 # Archivos de Base de Datos y Media local
 # db.sqlite3 (Incluido para evaluacion rapida del profesor)
 media/
+staticfiles/
 *.sqlite3.bak
 
 # IDEs y Editores

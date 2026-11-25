@@ -1,47 +1,56 @@
 {% if app_list %}
   {% for app in app_list %}
-    <div class="app-{{ app.app_label }} module{% if app.app_url in request.path %} current-app{% endif %}">
+    <div class="app-{{ app.app_label }} module{% if app.app_url in request.path %} current-app{% endif %}" style="margin-bottom: 22px;">
       <h2>
-        <a href="{{ app.app_url }}" style="color: #34d399; text-decoration: none;">
-          <i class="fa-solid fa-folder-open" style="margin-right: 8px;"></i> {{ app.name }}
+        <a href="{{ app.app_url }}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-folder" style="color: var(--accent-green);"></i>
+          <span>{{ app.name }}</span>
         </a>
       </h2>
       <table>
         {% for model in app.models %}
           <tr class="model-{{ model.object_name|lower }}{% if model.admin_url in request.path %} current-model{% endif %}">
             {% if model.admin_url %}
-              <th scope="row" style="padding: 16px 24px; font-weight: 700; font-size: 15px;">
-                <a href="{{ model.admin_url }}" style="color: #f8fafc; text-decoration: none;">
-                  <i class="fa-solid fa-cube" style="margin-right: 8px; color: var(--text-muted);"></i> {{ model.name }}
+              <th scope="row" style="padding: 13px 20px; font-weight: 600; font-size: 14px;">
+                <a href="{{ model.admin_url }}" style="color: var(--text-main); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                  {% if 'Unidad' in model.name or 'Vehículo' in model.name %}
+                    <i class="fa-solid fa-truck" style="color: var(--accent-green); width: 18px;"></i>
+                  {% elif 'Ruta' in model.name %}
+                    <i class="fa-solid fa-route" style="color: var(--accent-blue); width: 18px;"></i>
+                  {% elif 'Conductor' in model.name or 'Chofer' in model.name %}
+                    <i class="fa-solid fa-id-card" style="color: #b45309; width: 18px;"></i>
+                  {% elif 'Combustible' in model.name %}
+                    <i class="fa-solid fa-gas-pump" style="color: #dc2626; width: 18px;"></i>
+                  {% elif 'Actividad' in model.name or 'Auditoría' in model.name %}
+                    <i class="fa-solid fa-clock-rotate-left" style="color: #64748b; width: 18px;"></i>
+                  {% elif 'Recorrido' in model.name or 'Jornada' in model.name %}
+                    <i class="fa-solid fa-calendar-check" style="color: var(--accent-green); width: 18px;"></i>
+                  {% elif 'Incidencia' in model.name %}
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #dc2626; width: 18px;"></i>
+                  {% elif 'Punto' in model.name or 'GPS' in model.name %}
+                    <i class="fa-solid fa-location-dot" style="color: var(--accent-blue); width: 18px;"></i>
+                  {% elif 'Usuario' in model.name or 'User' in model.name %}
+                    <i class="fa-solid fa-user-gear" style="color: #475569; width: 18px;"></i>
+                  {% elif 'Grupo' in model.name or 'Group' in model.name %}
+                    <i class="fa-solid fa-users" style="color: #475569; width: 18px;"></i>
+                  {% else %}
+                    <i class="fa-solid fa-table-cells" style="color: #64748b; width: 18px;"></i>
+                  {% endif %}
+                  <span>{{ model.name }}</span>
                 </a>
               </th>
             {% else %}
-              <th scope="row" style="padding: 16px 24px; font-weight: 700; font-size: 15px;">{{ model.name }}</th>
+              <th scope="row" style="padding: 13px 20px; font-weight: 600; font-size: 14px; color: var(--text-main);">
+                {{ model.name }}
+              </th>
             {% endif %}
 
-            <td style="padding: 12px 24px; text-align: right; white-space: nowrap;">
-              <div style="display: inline-flex; gap: 8px; align-items: center; justify-content: flex-end;">
-                {% if model.add_url %}
-                  <a href="{{ model.add_url }}" class="addlink">
-                    <i class="fa-solid fa-plus"></i> Añadir
-                  </a>
-                {% endif %}
-
-                {% if model.admin_url %}
-                  {% if model.view_only %}
-                    <a href="{{ model.admin_url }}" class="viewlink">
-                      <i class="fa-solid fa-eye"></i> Consultar
-                    </a>
-                  {% else %}
-                    <a href="{{ model.admin_url }}" class="changelink">
-                      <i class="fa-solid fa-pen-to-square"></i> Modificar
-                    </a>
-                    <a href="{{ model.admin_url }}" class="deletelink" title="Acceder a la lista para seleccionar y eliminar registros">
-                      <i class="fa-solid fa-trash-can"></i> Eliminar
-                    </a>
-                  {% endif %}
-                {% endif %}
-              </div>
+            <td style="padding: 10px 20px; text-align: right; white-space: nowrap; width: 120px;">
+              {% if model.add_url %}
+                <a href="{{ model.add_url }}" class="btn-add-pill" title="Añadir nuevo registro">
+                  <i class="fa-solid fa-plus"></i> Añadir
+                </a>
+              {% endif %}
             </td>
           </tr>
         {% endfor %}
@@ -49,5 +58,7 @@
     </div>
   {% endfor %}
 {% else %}
-  <p style="padding: 24px; color: var(--text-muted);">No hay módulos o aplicaciones disponibles.</p>
+  <div style="background: #ffffff; border: 1px solid var(--card-border); border-radius: 10px; padding: 24px; color: var(--text-muted); text-align: center;">
+    No hay módulos disponibles para este perfil de usuario.
+  </div>
 {% endif %}

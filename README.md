@@ -9,13 +9,17 @@ EcoRuta es una plataforma integral para la gestión, optimización y seguimiento
 ## 🏗️ Arquitectura del Sistema
 
 * **Backend (Django 5.x):**
-  * Panel Web Administrativo con interfaz moderna Eco-Verde (Glassmorphism UI).
-  * API RESTful construida con Django REST Framework y autenticación mediante JWT.
-  * Base de Datos SQLite preconfigurada para entorno de desarrollo y pruebas.
+  * **Centro de Operaciones y Monitoreo GPS en Vivo**: Telemetría en tiempo real con actualización automática (c/3s), capas multi-estilo (CartoDB Dark Matter, Satelital Esri y Calles OSM), polilíneas con traza de ruta histórica, panel flotante de flota (HUD Radar) y simulador interactivo de telemetría GPS.
+  * **Analítica Ejecutiva & Eco-Calculadora**: Dashboard dinámico con métricas reales de Huella de Carbono (Kg CO2 prevenidos y árboles equivalentes salvados), consumo de combustible y gráficos Chart.js multivariables.
+  * **Eco-Optimizador de Rutas**: Simulador de consumo y emisiones de CO2 para cada ruta con selector dinámico de camiones de la flota y cálculo de calificación ecológica (A+, A, B).
+  * **Gestión Inteligente de Incidencias**: Campana de notificaciones en tiempo real en la cabecera, ventana modal de resolución de eventos y trazabilidad en bitácora de auditoría.
+  * **Exportación Ejecutiva Pro**: Informes descargables en PDF y Excel con resúmenes ejecutivos, métricas ecológicas y balances operativos.
+  * API RESTful robusta construida con Django REST Framework y OpenAPI/Swagger (`/api/docs/`).
 
-* **Frontend (Flutter 3.x):**
-  * Aplicación móvil multiplataforma para choferes y recolectores.
-  * Seguimiento de rutas de recolección en tiempo real y reporte de incidencias.
+* **Frontend Móvil (Flutter 3.x):**
+  * Perfil gamificado del chofer con insignias de honor, bonos en USD y niveles de eco-rendimiento (Oro, Plata, Bronce).
+  * Monitoreo de ruta en curso con velocímetro digital en tiempo real (Km/h), precisión satelital, cronómetro de jornada y cola de sincronización offline automática.
+
 
 ---
 

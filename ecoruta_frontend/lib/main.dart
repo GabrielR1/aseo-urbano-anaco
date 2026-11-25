@@ -22,15 +22,26 @@ class EcoRutaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'EcoRuta Chofer',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF070B12),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF10B981),
+          brightness: Brightness.dark,
+          primary: const Color(0xFF10B981),
+          surface: const Color(0xFF0F172A),
+        ),
         useMaterial3: true,
+        fontFamily: 'Roboto',
       ),
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           if (auth.isLoading) {
             return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              body: Center(
+                child: CircularProgressIndicator(color: Color(0xFF10B981)),
+              ),
             );
           }
           if (auth.isAuthenticated) {

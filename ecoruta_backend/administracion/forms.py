@@ -4,7 +4,7 @@ from .models import Ruta, Vehiculo
 class RutaForm(forms.ModelForm):
     class Meta:
         model = Ruta
-        fields = ['nombre', 'descripcion', 'zona', 'distancia_estimada_km']
+        fields = ['nombre', 'descripcion', 'zona', 'distancia_estimada_km', 'coordenadas_waypoints']
         widgets = {
             'nombre': forms.TextInput(attrs={
                 'class': 'form-input',
@@ -22,6 +22,7 @@ class RutaForm(forms.ModelForm):
                 'placeholder': 'Ej. 15.5',
                 'required': True
             }),
+            'coordenadas_waypoints': forms.HiddenInput(),
             'descripcion': forms.Textarea(attrs={
                 'class': 'form-input',
                 'rows': 3,

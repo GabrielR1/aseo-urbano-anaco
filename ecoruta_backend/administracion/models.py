@@ -18,8 +18,8 @@ class Vehiculo(models.Model):
     actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     class Meta:
-        verbose_name = "Vehículo"
-        verbose_name_plural = "Vehículos de la Flota"
+        verbose_name = "Unidad de Recolección"
+        verbose_name_plural = "Unidades de Recolección (Flota)"
 
     def __str__(self):
         return f"{self.marca} {self.modelo} - {self.placa}"
@@ -29,12 +29,13 @@ class Ruta(models.Model):
     descripcion = models.TextField(blank=True, verbose_name="Descripción")
     zona = models.CharField(max_length=100, blank=True, verbose_name="Zona / Sector")
     distancia_estimada_km = models.DecimalField(max_digits=6, decimal_places=2, default=10.0, verbose_name="Distancia Estimada (Km)")
+    coordenadas_waypoints = models.TextField(blank=True, default="", verbose_name="Waypoints y Puntos de Recolección (JSON)")
     creado_en = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
     actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     class Meta:
-        verbose_name = "Ruta Ecológica"
-        verbose_name_plural = "Rutas Ecológicas"
+        verbose_name = "Ruta de Recolección"
+        verbose_name_plural = "Rutas de Recolección"
 
     def __str__(self):
         return self.nombre
@@ -48,7 +49,7 @@ class Chofer(models.Model):
 
     class Meta:
         verbose_name = "Conductor / Chofer"
-        verbose_name_plural = "Conductores / Choferes"
+        verbose_name_plural = "Conductores y Cuadrillas"
 
     def __str__(self):
         return f"Chofer: {self.usuario.get_full_name() or self.usuario.username}"
@@ -83,8 +84,8 @@ class RegistroAuditoria(models.Model):
     timestamp = models.DateTimeField(default=timezone.now, db_index=True, verbose_name="Fecha y Hora")
 
     class Meta:
-        verbose_name = "Registro de Auditoría"
-        verbose_name_plural = "Bitácora de Auditoría del Sistema"
+        verbose_name = "Registro de Actividad"
+        verbose_name_plural = "Registro de Actividades (Auditoría)"
 
     def __str__(self):
         return f"[{self.accion}] {self.tabla_afectada} por {self.usuario} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"

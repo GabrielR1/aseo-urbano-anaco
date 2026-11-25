@@ -1,69 +1,116 @@
 {% extends 'dashboard/base.html' %}
 
-{% block page_title %}Gestión de Rutas Ecológicas{% endblock %}
+{% block page_title %}Rutas y Sectores de Recolección{% endblock %}
 
 {% block content %}
+<!-- Header Bar with Quick Stats & Search -->
 <div class="glass-card" style="margin-bottom: 24px;">
     <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
         <div>
-            <h3 style="margin: 0; color: var(--text-main);">Directorio de Rutas de Recolección</h3>
-            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px;">Administra, edita o elimina las rutas del sistema EcoRuta para el proyecto de tesis</p>
+            <h3
+                style="margin: 0; color: #0f172a; font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-route" style="color: var(--accent-green);"></i>
+                Rutas y Sectores de Recolección - Municipio Anaco
+            </h3>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 13px;">
+                Supervisión de perímetros urbanos, kilometraje proyectado y cobertura operativa de cuadrillas.
+            </p>
         </div>
-        <button onclick="abrirModalCrearRuta()" style="padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
-            <i class="fa-solid fa-plus-circle" style="margin-right: 8px;"></i> Guardar Nueva Ruta
-        </button>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <div class="table-search-bar">
+                <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 13px;"></i>
+                <input type="text" id="searchRutasInput" placeholder="Buscar ruta o sector...">
+            </div>
+            <button onclick="abrirModalAsignarRutaDirecta(null)" class="btn-modern"
+                style="background: #ffffff; border: 1px solid var(--card-border); color: #1d4ed8; font-weight: 700;">
+                <i class="fa-solid fa-calendar-plus"></i> Asignar Recorrido
+            </button>
+            <button onclick="abrirModalCrearRuta()" class="btn-modern btn-primary-green">
+                <i class="fa-solid fa-plus-circle"></i> Registrar Nueva Ruta
+            </button>
+        </div>
     </div>
 </div>
 
-<div class="glass-card">
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+<!-- Table Card -->
+<div class="glass-card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="modern-table" id="rutasTable">
             <thead>
-                <tr style="border-bottom: 1px solid var(--glass-border);">
-                    <th style="padding: 14px; color: var(--text-muted);">Nombre de la Ruta</th>
-                    <th style="padding: 14px; color: var(--text-muted);">Zona / Sector</th>
-                    <th style="padding: 14px; color: var(--text-muted);">Distancia Est.</th>
-                    <th style="padding: 14px; color: var(--text-muted);">Descripción</th>
-                    <th style="padding: 14px; color: var(--text-muted); text-align: center;">Acciones (CRUD)</th>
+                <tr>
+                    <th>Nombre de la Ruta</th>
+                    <th>Sector / Zona</th>
+                    <th>Distancia Est.</th>
+                    <th>Consumo Proyectado</th>
+                    <th style="text-align: center;">Operaciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for r in rutas %}
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 16px; font-weight: 700; color: var(--accent-green);">
-                        <i class="fa-solid fa-route" style="margin-right: 8px;"></i>{{ r.nombre }}
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 38px; height: 38px; border-radius: 8px; background: #dcfce7; border: 1px solid #bbf7d0; display: flex; align-items: center; justify-content: center; color: #15803d; font-size: 15px; flex-shrink: 0;">
+                                <i class="fa-solid fa-location-arrow"></i>
+                            </div>
+                            <div>
+                                <span style="font-weight: 700; color: #0f172a; font-size: 14px; display: block;">{{ r.nombre }}</span>
+                                <span style="font-size: 12px; color: var(--text-muted);">{{ r.descripcion|default:"Sin descripción complementaria"|truncatechars:50 }}</span>
+                            </div>
+                        </div>
                     </td>
-                    <td style="padding: 16px; color: var(--text-main);">
-                        <span style="background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">
-                            {{ r.zona|default:"General" }}
+                    <td>
+                        <span style="background: #dbeafe; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-location-dot" style="font-size: 10px;"></i> {{ r.zona|default:"Sector General" }}
                         </span>
                     </td>
-                    <td style="padding: 16px; font-weight: 600;">{{ r.distancia_estimada_km }} Km</td>
-                    <td style="padding: 16px; color: var(--text-muted); font-size: 14px; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        {{ r.descripcion|default:"Sin descripción" }}
+                    <td>
+                        <div style="font-weight: 800; color: #0f172a; font-size: 15px;">
+                            {{ r.distancia_estimada_km }} <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">Km</span>
+                        </div>
                     </td>
-                    <td style="padding: 16px; text-align: center;">
-                        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-                            <button onclick="abrirModalEficienciaEco('{{ r.nombre|escapejs }}', '{{ r.distancia_estimada_km }}')" 
-                                    style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: #34d399; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;" title="Cálculo de Eficiencia Ecológica y CO2">
-                                <i class="fa-solid fa-leaf"></i> Eficiencia Eco
+                    <td>
+                        <div style="font-size: 13px; color: #15803d; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-gas-pump" style="color: #16a34a;"></i> ~{% widthratio r.distancia_estimada_km 5 1 %} Litros
+                        </div>
+                        <span style="font-size: 11px; color: var(--text-muted);">Estimación base a 5.0 Km/L</span>
+                    </td>
+                    <td style="text-align: center;">
+                        <div
+                            style="display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            <button
+                                onclick="abrirModalAsignarRutaDirecta({{ r.id }}, '{{ r.nombre|escapejs }}', '{{ r.zona|escapejs }}', '{{ r.distancia_estimada_km }}')"
+                                class="btn-modern btn-primary-green"
+                                style="padding: 5px 10px; font-size: 11.5px; font-weight: 700; white-space: nowrap;"
+                                title="Asignar esta ruta a un camión y chofer">
+                                <i class="fa-solid fa-truck-fast"></i> Asignar Recorrido
                             </button>
-                            <button onclick="abrirModalEditarRuta({{ r.id }}, '{{ r.nombre|escapejs }}', '{{ r.zona|escapejs }}', '{{ r.distancia_estimada_km }}', '{{ r.descripcion|escapejs }}')" 
-                                    style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--accent-blue); color: #60a5fa; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;" title="Modificar Ruta">
-                                <i class="fa-solid fa-pen-to-square"></i> Modificar
+                            <button
+                                onclick="abrirModalEditarRuta({{ r.id }}, '{{ r.nombre|escapejs }}', '{{ r.zona|escapejs }}', '{{ r.distancia_estimada_km }}', '{{ r.descripcion|escapejs }}')"
+                                class="btn-action-icon"
+                                style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.35); color: #60a5fa;"
+                                title="Modificar Ruta">
+                                <i class="fa-solid fa-pen-to-square"></i>
                             </button>
-                            <button onclick="abrirModalEliminarRuta({{ r.id }}, '{{ r.nombre|escapejs }}')" 
-                                    style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;" title="Eliminar Ruta">
-                                <i class="fa-solid fa-trash-can"></i> Eliminar
+                            <button onclick="abrirModalEliminarRuta({{ r.id }}, '{{ r.nombre|escapejs }}')"
+                                class="btn-action-icon"
+                                style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.35); color: #f87171;"
+                                title="Eliminar Ruta">
+                                <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="5" style="padding: 32px; text-align: center; color: var(--text-muted);">
-                        <i class="fa-solid fa-map-location-dot" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
-                        No hay rutas registradas en el sistema. Haz clic en <strong>"Guardar Nueva Ruta"</strong> para agregar la primera.
+                <tr class="empty-row">
+                    <td colspan="5" style="padding: 48px; text-align: center; color: var(--text-muted);">
+                        <i class="fa-solid fa-route"
+                            style="font-size: 42px; margin-bottom: 14px; display: block; color: var(--text-muted); opacity: 0.4;"></i>
+                        <span
+                            style="font-weight: 700; color: #0f172a; font-size: 15px; display: block; margin-bottom: 4px;">No
+                            hay rutas registradas actualmente</span>
+                        Haz clic en <strong>"Registrar Nueva Ruta"</strong> para agregar un nuevo circuito de
+                        recolección en Anaco.
                     </td>
                 </tr>
                 {% endfor %}
@@ -75,129 +122,209 @@
 
 {% block scripts %}
 <script>
+    // Inicializar búsqueda en vivo
+    document.addEventListener('DOMContentLoaded', function () {
+        setupTableSearch('searchRutasInput', 'rutasTable');
+    });
+
     function abrirModalCrearRuta() {
-        var content = `
+        const content = `
             <form action="{% url 'ruta_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Nombre de la Ruta:</label>
-                    <input type="text" name="nombre" class="form-input" placeholder="Ej. Ruta Casco Urbano" required>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre de la Ruta:</label>
+                    <input type="text" name="nombre" class="form-input" placeholder="Ej. Ruta Casco Urbano y Av. Bolívar" required>
                 </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Zona / Sector:</label>
-                    <input type="text" name="zona" class="form-input" placeholder="Ej. Sector Este" required>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Distancia Estimada (Km):</label>
-                    <input type="number" step="0.01" name="distancia_estimada_km" class="form-input" placeholder="Ej. 18.5" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Sector / Zona:</label>
+                        <input type="text" name="zona" class="form-input" placeholder="Ej. Sector Este" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Distancia Estimada (Km):</label>
+                        <input type="number" step="0.01" name="distancia_estimada_km" class="form-input" placeholder="Ej. 22.5" required>
+                    </div>
                 </div>
                 <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Descripción:</label>
-                    <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalles de la trayectoria..."></textarea>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Descripción y Puntos de Recolección:</label>
+                    <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalla avenidas principales, puntos de contenedores y depósitos..."></textarea>
                 </div>
-                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #10b981, #059669); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
-                    <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Guardar Ruta
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Registrar Ruta de Recolección
                 </button>
             </form>
         `;
-        openModal('Guardar Nueva Ruta', content);
+        openModal('<i class="fa-solid fa-circle-plus" style="color: var(--accent-green-light);"></i> Registrar Nueva Ruta', content);
     }
 
     function abrirModalEditarRuta(id, nombre, zona, distancia, descripcion) {
-        var actionUrl = "{% url 'ruta_editar' 0 %}".replace('0', id);
-        var content = `
+        const actionUrl = "{% url 'ruta_editar' 0 %}".replace('0', id);
+        const content = `
             <form action="${actionUrl}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Nombre de la Ruta:</label>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre de la Ruta:</label>
                     <input type="text" name="nombre" class="form-input" value="${nombre}" required>
                 </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Zona / Sector:</label>
-                    <input type="text" name="zona" class="form-input" value="${zona}" required>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Distancia Estimada (Km):</label>
-                    <input type="number" step="0.01" name="distancia_estimada_km" class="form-input" value="${distancia}" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Sector / Zona:</label>
+                        <input type="text" name="zona" class="form-input" value="${zona}" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Distancia Estimada (Km):</label>
+                        <input type="number" step="0.01" name="distancia_estimada_km" class="form-input" value="${distancia}" required>
+                    </div>
                 </div>
                 <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Descripción:</label>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Descripción:</label>
                     <textarea name="descripcion" class="form-input" rows="3">${descripcion}</textarea>
                 </div>
-                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
-                    <i class="fa-solid fa-pen-to-square" style="margin-right: 8px;"></i> Modificar Ruta
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 12px; font-size: 14px;">
+                    <i class="fa-solid fa-pen-to-square"></i> Actualizar Información
                 </button>
             </form>
         `;
-        openModal('Modificar Ruta', content);
+        openModal('<i class="fa-solid fa-pen-to-square" style="color: #2563eb;"></i> Modificar Ruta', content);
     }
 
     function abrirModalEliminarRuta(id, nombre) {
-        var actionUrl = "{% url 'ruta_eliminar' 0 %}".replace('0', id);
-        var content = `
+        const actionUrl = "{% url 'ruta_eliminar' 0 %}".replace('0', id);
+        const content = `
             <form action="${actionUrl}" method="post" style="text-align: center;">
                 {% csrf_token %}
-                <div style="font-size: 50px; color: var(--accent-red); margin-bottom: 16px;">
+                <div style="width: 50px; height: 50px; border-radius: 50%; background: #fee2e2; border: 1px solid #fecaca; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px auto; color: #dc2626; font-size: 22px;">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
-                <p style="font-size: 16px; color: var(--text-main); margin-bottom: 24px;">
-                    ¿Estás seguro de que deseas eliminar la ruta <strong style="color: var(--accent-red);">${nombre}</strong>?
-                    <br><span style="font-size: 13px; color: var(--text-muted);">Esta acción no se puede deshacer.</span>
+                <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 17px; font-weight: 700;">¿Eliminar esta ruta?</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">
+                    Estás a punto de borrar la ruta <strong style="color: #dc2626;">${nombre}</strong>.<br>
+                    Esta acción eliminará su registro de los itinerarios programados.
                 </p>
                 <div style="display: flex; gap: 12px;">
-                    <button type="button" onclick="closeModal()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer;">Cancelar</button>
-                    <button type="submit" style="flex: 1; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);">
-                        <i class="fa-solid fa-trash-can" style="margin-right: 6px;"></i> Eliminar
+                    <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #f1f5f9; color: #334155; border: 1px solid var(--card-border);">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-modern" style="flex: 1; background: #dc2626; color: white;">
+                        <i class="fa-solid fa-trash-can"></i> Sí, Eliminar
                     </button>
                 </div>
             </form>
         `;
-    function abrirModalEficienciaEco(nombre, distancia) {
-        var dist = parseFloat(distancia) || 10.0;
-        var litros = (dist / 5.0).toFixed(2);
-        var costo = (litros * 0.50).toFixed(2);
-        var co2 = (dist * 0.264).toFixed(2);
-        var co2Ahorrado = (co2 * 0.15).toFixed(2);
+        openModal('<i class="fa-solid fa-trash-can" style="color: #dc2626;"></i> Confirmar Eliminación', content);
+    }
 
-        var content = `
-            <div style="text-align: left; line-height: 1.6;">
-                <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid var(--accent-green); padding: 16px; border-radius: 14px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 6px 0; color: #34d399;"><i class="fa-solid fa-seedling"></i> Análisis Ecológico: ${nombre}</h4>
-                    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Estimación de impacto ambiental y consumo proyectado</p>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
-                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                        <span style="font-size: 12px; color: var(--text-muted);">Distancia Total</span>
-                        <h3 style="margin: 4px 0 0 0; color: var(--text-main);">${dist} Km</h3>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                        <span style="font-size: 12px; color: var(--text-muted);">Combustible Est.</span>
-                        <h3 style="margin: 4px 0 0 0; color: #34d399;">${litros} Lts</h3>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                        <span style="font-size: 12px; color: var(--text-muted);">Costo Est. ($)</span>
-                        <h3 style="margin: 4px 0 0 0; color: #60a5fa;">$ ${costo}</h3>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                        <span style="font-size: 12px; color: var(--text-muted);">Emisiones CO2</span>
-                        <h3 style="margin: 4px 0 0 0; color: #f87171;">${co2} Kg</h3>
+    function abrirModalAsignarRutaDirecta(rutaIdPrevia) {
+        const content = `
+            <form action="{% url 'jornada_crear' %}" method="post" style="text-align: left;">
+                {% csrf_token %}
+                <input type="hidden" name="next_url" value="{% url 'dashboard_rutas' %}">
+
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;">
+                    <i class="fa-solid fa-satellite-dish" style="color: #2563eb; font-size: 18px; margin-top: 2px;"></i>
+                    <div style="font-size: 12.5px; color: #1e40af; line-height: 1.4;">
+                        <strong>Seguimiento satelital por teléfono móvil:</strong><br>
+                        Puedes asignar cualquier camión con cualquier chofer. Quien transmite las coordenadas GPS en tiempo real es el <strong>teléfono celular del conductor</strong> al iniciar su jornada en la aplicación móvil.
                     </div>
                 </div>
 
-                <div style="background: rgba(59, 130, 246, 0.15); border: 1px solid var(--accent-blue); padding: 14px; border-radius: 12px; margin-bottom: 20px;">
-                    <strong style="color: #60a5fa;"><i class="fa-solid fa-earth-americas"></i> Reducción de Huella de Carbono:</strong>
-                    <p style="margin: 4px 0 0 0; font-size: 14px; color: var(--text-main);">
-                        Con la optimización de trayectorias EcoRuta se proyecta un ahorro estimado de <strong style="color: #34d399;">${co2Ahorrado} Kg de CO2</strong> en cada ciclo de recolección.
-                    </p>
+                <div style="margin-bottom: 14px;">
+                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span><i class="fa-solid fa-route" style="color: var(--accent-green); margin-right: 5px;"></i> 1. Ruta de Recolección:</span>
+                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Circuito seleccionado</span>
+                    </label>
+                    <select name="ruta" id="rutaModalSelectRuta" class="form-select" onchange="actualizarPreviewRutaModal()" required>
+                        {% for r in rutas %}
+                        <option value="{{ r.id }}" data-nombre="{{ r.nombre }}" data-km="{{ r.distancia_estimada_km }}" {% if rutaIdPrevia == r.id %}selected{% endif %}>
+                            {{ r.nombre }} [{{ r.zona|default:"Sector General" }}] • {{ r.distancia_estimada_km }} Km
+                        </option>
+                        {% empty %}
+                        <option value="">No hay rutas registradas</option>
+                        {% endfor %}
+                    </select>
                 </div>
 
-                <button onclick="closeModal()" style="width:100%; padding: 12px; background: var(--accent-green); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer;">
-                    Entendido
+                <div style="margin-bottom: 14px;">
+                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span><i class="fa-solid fa-truck" style="color: #2563eb; margin-right: 5px;"></i> 2. Camión / Unidad Asignada:</span>
+                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Cualquier vehículo</span>
+                    </label>
+                    <select name="vehiculo" id="rutaModalSelectVehiculo" class="form-select" onchange="actualizarPreviewRutaModal()" required>
+                        {% for v in vehiculos %}
+                        <option value="{{ v.id }}" data-placa="{{ v.placa }}" data-marca="{{ v.marca }} {{ v.modelo }}">
+                            [Placa: {{ v.placa }}] • {{ v.marca }} {{ v.modelo }} ({{ v.capacidad_toneladas }} Ton)
+                        </option>
+                        {% empty %}
+                        <option value="">No hay vehículos registrados</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span><i class="fa-solid fa-mobile-screen-button" style="color: #16a34a; margin-right: 5px;"></i> 3. Chofer a Cargo (Teléfono GPS a rastrear):</span>
+                        <span style="font-size: 11px; color: var(--accent-green); font-weight: 700;">Emisor satelital</span>
+                    </label>
+                    <select name="chofer" id="rutaModalSelectChofer" class="form-select" onchange="actualizarPreviewRutaModal()" required>
+                        {% for c in choferes %}
+                        <option value="{{ c.id }}" data-nombre="{{ c.usuario.get_full_name|default:c.usuario.username }}">
+                            👤 {{ c.usuario.get_full_name|default:c.usuario.username }} [Lic: {{ c.licencia }}] {% if c.telefono %}• Tel: {{ c.telefono }}{% endif %}
+                        </option>
+                        {% empty %}
+                        <option value="">No hay choferes disponibles</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span><i class="fa-regular fa-calendar-days" style="color: var(--text-muted); margin-right: 5px;"></i> 4. Fecha de Ejecución:</span>
+                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Hoy por defecto</span>
+                    </label>
+                    <input type="date" name="fecha" id="rutaModalInputFecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" required>
+                </div>
+
+                <div id="rutaModalPreviewBox" style="background: #f8fafc; border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 14px; margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-clipboard-check" style="color: var(--accent-green); margin-right: 4px;"></i> Resumen de Asignación
+                    </div>
+                    <div id="rutaModalPreviewTexto" style="font-size: 12.5px; color: #0f172a; line-height: 1.5;">
+                        Cargando resumen...
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px; font-weight: 700;">
+                    <i class="fa-solid fa-check-double"></i> Asignar y Confirmar Recorrido
                 </button>
-            </div>
+            </form>
         `;
-        openModal('Optimización Ecológica de Ruta', content);
+        openModal('<i class="fa-solid fa-truck-fast" style="color: var(--accent-green);"></i> Asignar Ruta a Unidad y Conductor', content);
+        if (rutaIdPrevia) {
+            const selRuta = document.getElementById('rutaModalSelectRuta');
+            if (selRuta) selRuta.value = rutaIdPrevia;
+        }
+        setTimeout(actualizarPreviewRutaModal, 100);
+    }
+
+    function actualizarPreviewRutaModal() {
+        const selRuta = document.getElementById('rutaModalSelectRuta');
+        const selVehiculo = document.getElementById('rutaModalSelectVehiculo');
+        const selChofer = document.getElementById('rutaModalSelectChofer');
+        const preview = document.getElementById('rutaModalPreviewTexto');
+        if (!preview) return;
+
+        const rutaOpt = selRuta ? selRuta.options[selRuta.selectedIndex] : null;
+        const vehOpt = selVehiculo ? selVehiculo.options[selVehiculo.selectedIndex] : null;
+        const choferOpt = selChofer ? selChofer.options[selChofer.selectedIndex] : null;
+
+        const rutaNombre = rutaOpt ? (rutaOpt.dataset.nombre || rutaOpt.text.trim()) : 'Ruta seleccionada';
+        const vehPlaca = vehOpt ? (vehOpt.dataset.placa || vehOpt.text.trim()) : 'Vehículo seleccionado';
+        const choferNombre = choferOpt ? (choferOpt.dataset.nombre || choferOpt.text.trim()) : 'Chofer seleccionado';
+
+        preview.innerHTML = `
+            El camión <strong style="color: #1d4ed8;">[${vehPlaca}]</strong> cubrirá la <strong style="color: #15803d;">${rutaNombre}</strong>.<br>
+            📱 <span style="color: #0369a1;">Se rastreará el móvil de:</span> <strong>${choferNombre}</strong>.
+        `;
     }
 </script>
 {% endblock %}

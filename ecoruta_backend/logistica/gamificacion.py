@@ -15,7 +15,7 @@ def evaluar_y_actualizar_puntaje_chofer(chofer):
     jornadas_finalizadas = Jornada.objects.select_related('ruta').filter(chofer=chofer, estado='finalizada')
     
     total_jornadas = jornadas_finalizadas.count()
-    total_km = sum(float(j.ruta.distancia_estimada_km) for j in jornadas_finalizadas)
+    total_km = sum(j.calcular_distancia_real_km() for j in jornadas_finalizadas)
     
     # Cálculo de puntos: 10 pts por km + 50 pts por jornada finalizada
     puntos_calculados = int((total_km * 10) + (total_jornadas * 50))

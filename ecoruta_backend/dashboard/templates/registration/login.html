@@ -1,8 +1,8 @@
 {% extends 'registration/base_auth.html' %}
 
-{% block title %}EcoRuta - Iniciar Sesión{% endblock %}
-{% block header %}EcoRuta{% endblock %}
-{% block subheader %}Inicia sesión en tu cuenta{% endblock %}
+{% block title %}Aseo Urbano Anaco - Iniciar Sesión{% endblock %}
+{% block header %}Aseo Urbano Anaco{% endblock %}
+{% block subheader %}Dirección de Aseo Urbano • Alcaldía de Anaco{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -12,23 +12,59 @@
 
     .toggle-password {
         position: absolute;
-        right: 16px;
+        right: 14px;
         top: 50%;
         transform: translateY(-50%);
         cursor: pointer;
         color: var(--text-muted);
+        font-size: 15px;
+        transition: color 0.2s;
     }
 
     .toggle-password:hover {
-        color: var(--text-main);
+        color: #ffffff;
+    }
+
+    .demo-credentials-pill {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 20px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: border-color 0.15s ease;
+    }
+
+    .demo-credentials-pill:hover {
+        border-color: #94a3b8;
+        background: #f1f5f9;
     }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Quick Fill Demo Credentials Banner -->
+<div class="demo-credentials-pill" onclick="fillDemoCredentials()" title="Clic para rellenar usuario y clave automáticamente">
+    <div style="display: flex; align-items: center; gap: 8px; text-align: left;">
+        <i class="fa-solid fa-key" style="color: var(--accent-green);"></i>
+        <div>
+            <span style="font-weight: 700; color: #0f172a; display: block;">Acceso de Demostración</span>
+            <span style="color: var(--text-muted); font-size: 11px;">admin / admin123</span>
+        </div>
+    </div>
+    <span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 10px;">
+        AUTOLLENAR
+    </span>
+</div>
+
 {% if form.errors %}
 <div class="error-message">
-    <i class="fa-solid fa-circle-exclamation"></i> Tu usuario y contraseña no coinciden. Inténtalo de nuevo.
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>Usuario o contraseña incorrectos. Por favor intenta de nuevo.</span>
 </div>
 {% endif %}
 
@@ -37,22 +73,32 @@
     
     <div class="form-group">
         <label for="id_username">Usuario</label>
-        <input type="text" name="username" class="form-control" autofocus required id="id_username">
+        <div style="position: relative;">
+            <input type="text" name="username" class="form-control" autofocus required id="id_username" placeholder="Nombre de usuario" style="padding-left: 40px;">
+            <i class="fa-solid fa-user" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px;"></i>
+        </div>
     </div>
 
     <div class="form-group">
         <label for="id_password">Contraseña</label>
-        <div class="password-container">
-            <input type="password" name="password" class="form-control" required id="id_password">
+        <div class="password-container" style="position: relative;">
+            <input type="password" name="password" class="form-control" required id="id_password" placeholder="Tu contraseña" style="padding-left: 40px; padding-right: 42px;">
+            <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px;"></i>
             <i class="fa-solid fa-eye toggle-password" id="togglePassword"></i>
         </div>
     </div>
 
-    <button type="submit" class="btn-submit">Ingresar</button>
+    <button type="submit" class="btn-submit">
+        <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar Sesión
+    </button>
     <input type="hidden" name="next" value="{{ next|default:'/dashboard/' }}">
 </form>
 
-<a href="{% url 'password_reset' %}" class="link-text">¿Olvidaste tu contraseña?</a>
+<div style="margin-top: 20px;">
+    <a href="{% url 'password_reset' %}" class="link-text">
+        <i class="fa-solid fa-circle-question"></i> ¿Olvidaste tu contraseña?
+    </a>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -60,17 +106,29 @@
     const togglePassword = document.querySelector('#togglePassword');
     const password = document.querySelector('#id_password');
 
-    togglePassword.addEventListener('click', function (e) {
-        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-        password.setAttribute('type', type);
-        
-        if (type === 'password') {
-            this.classList.remove('fa-eye-slash');
-            this.classList.add('fa-eye');
-        } else {
-            this.classList.remove('fa-eye');
-            this.classList.add('fa-eye-slash');
+    if (togglePassword && password) {
+        togglePassword.addEventListener('click', function () {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            
+            if (type === 'password') {
+                this.classList.remove('fa-eye-slash');
+                this.classList.add('fa-eye');
+            } else {
+                this.classList.remove('fa-eye');
+                this.classList.add('fa-eye-slash');
+            }
+        });
+    }
+
+    function fillDemoCredentials() {
+        const userInput = document.getElementById('id_username');
+        const passInput = document.getElementById('id_password');
+        if (userInput && passInput) {
+            userInput.value = 'admin';
+            passInput.value = 'admin123';
+            userInput.focus();
         }
-    });
+    }
 </script>
 {% endblock %}

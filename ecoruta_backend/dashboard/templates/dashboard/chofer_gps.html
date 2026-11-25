@@ -1,0 +1,766 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Modo Chofer GPS • Aseo Urbano Anaco</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'dashboard/vendor/leaflet/leaflet.css' %}">
+    <script src="{% static 'dashboard/vendor/leaflet/leaflet.js' %}"></script>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #090d16;
+            color: #f8fafc;
+            min-height: 100vh;
+            padding-bottom: 32px;
+        }
+        .topbar {
+            background: #0f172a;
+            border-bottom: 1px solid #1e293b;
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #10b981;
+            font-size: 16px;
+        }
+        .container {
+            max-width: 540px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        .card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+        .alert-warn {
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #fcd34d;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 13px;
+            line-height: 1.45;
+            margin-bottom: 14px;
+        }
+        .alert-err {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+        .journey-item {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+        .journey-item.active-card {
+            border-color: #10b981;
+            background: linear-gradient(145deg, #132a23, #0f172a);
+        }
+        .badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        .badge-green { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-amber { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .badge-blue { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: none;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.1s ease, opacity 0.15s ease;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-green { background: #10b981; color: #052e16; }
+        .btn-red { background: #ef4444; color: #ffffff; }
+        .btn-outline { background: transparent; color: #e2e8f0; border: 1px solid #334155; }
+        .btn-sm { padding: 8px 12px; font-size: 12.5px; width: auto; }
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 14px 0;
+        }
+        .stat-box {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-val {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .speed-hero {
+            text-align: center;
+            padding: 16px 10px;
+            background: radial-gradient(circle at top, rgba(16, 185, 129, 0.18), transparent 70%);
+            border-radius: 14px;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+        .speed-num {
+            font-size: 54px;
+            font-weight: 800;
+            line-height: 1;
+            color: #34d399;
+        }
+        #miniMap {
+            height: 220px;
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            margin-top: 12px;
+            z-index: 1;
+        }
+        .form-control {
+            width: 100%;
+            padding: 11px 12px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #ffffff;
+            font-family: inherit;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .modal-bg {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.78);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-bg.open { display: flex; }
+        .modal-card {
+            background: #111827;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 440px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            display: inline-block;
+            animation: gpsPulse 1.4s infinite;
+        }
+        @keyframes gpsPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+            <div>
+                <div style="font-weight: 800; font-size: 14.5px; line-height: 1.1;">Modo Chofer GPS</div>
+                <div style="font-size: 11px; color: #94a3b8;">{{ request.user.get_full_name|default:request.user.username }}</div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            {% if es_admin %}
+            <a href="{% url 'dashboard_mapa' %}" class="btn btn-outline btn-sm" title="Ver Mapa Central">
+                <i class="fa-solid fa-map"></i> Mapa
+            </a>
+            {% endif %}
+            <form action="{% url 'logout' %}" method="post" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline btn-sm" style="color: #fca5a5; border-color: #7f1d1d;" title="Cerrar Sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Advertencia automática si no está en HTTPS -->
+        <div id="httpsWarning" class="alert-warn" style="display: none;">
+            <i class="fa-solid fa-shield-halved"></i>
+            <strong>Atención:</strong> Estás abriendo esta página sin <b>HTTPS</b>. Los navegadores móviles (Chrome/Safari) bloquean el GPS real en direcciones <code>http://</code> por seguridad. Usa la dirección <code>https://</code> del servidor en Render.
+        </div>
+
+        <div id="gpsErrorBox" class="alert-err" style="display: none;"></div>
+
+        <!-- PANEL DE RASTREO ACTIVO (oculto hasta iniciar una jornada) -->
+        <div id="activeTrackingPanel" style="display: none;">
+            <div class="card" style="border-color: rgba(16, 185, 129, 0.5);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="pulse-dot" id="gpsStatusDot"></span>
+                        <span id="gpsStatusLabel" style="font-weight: 700; font-size: 13px; color: #34d399;">Conectando GPS...</span>
+                    </div>
+                    <span id="elapsedClock" style="font-family: monospace; font-size: 14px; font-weight: 700; color: #e2e8f0;">00:00:00</span>
+                </div>
+
+                <div id="activeJourneyTitle" style="font-size: 15px; font-weight: 800; color: #ffffff; margin-bottom: 2px;"></div>
+                <div id="activeJourneyMeta" style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;"></div>
+
+                <div class="speed-hero">
+                    <div class="speed-num" id="speedValue">0.0</div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Km/h • Velocidad real del teléfono</div>
+                </div>
+
+                <div class="telemetry-grid">
+                    <div class="stat-box">
+                        <div class="stat-val" id="distValue" style="color: #60a5fa;">0.00 km</div>
+                        <div class="stat-label">Distancia GPS Real</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val" id="accValue">-- m</div>
+                        <div class="stat-label">Precisión Satelital</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val" id="sentCountValue" style="color: #34d399;">0</div>
+                        <div class="stat-label">Puntos Enviados</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val" id="queueCountValue" style="color: #fbbf24;">0</div>
+                        <div class="stat-label">Cola Offline</div>
+                    </div>
+                </div>
+
+                <div style="font-family: monospace; font-size: 11.5px; color: #94a3b8; text-align: center; background: #0f172a; padding: 7px 10px; border-radius: 8px;">
+                    Coords: <span id="coordsText">Esperando señal satelital...</span>
+                </div>
+
+                <div id="miniMap"></div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
+                    <button type="button" class="btn btn-red" onclick="abrirModalIncidencia()">
+                        <i class="fa-solid fa-camera"></i> Reportar Incidencia con GPS y Foto
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="abrirModalFinalizar()">
+                        <i class="fa-solid fa-flag-checkered"></i> Finalizar Jornada y Registrar Toneladas
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LISTA DE JORNADAS ASIGNADAS -->
+        <div id="journeySelectionPanel">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div>
+                        <div style="font-weight: 800; font-size: 16px;">Jornadas Disponibles</div>
+                        <div style="font-size: 12px; color: #94a3b8;">Selecciona una jornada para activar el GPS de tu teléfono</div>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="location.reload()">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+
+                {% for j in jornadas %}
+                <div class="journey-item {% if j.estado == 'en_curso' %}active-card{% endif %}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span class="badge badge-blue">{{ j.vehiculo.placa }}</span>
+                        {% if j.estado == 'en_curso' %}
+                        <span class="badge badge-green">En Curso</span>
+                        {% else %}
+                        <span class="badge badge-amber">Pendiente</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-weight: 800; font-size: 14.5px; margin-bottom: 4px;">{{ j.ruta.nombre }}</div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">
+                        <i class="fa-solid fa-truck"></i> {{ j.vehiculo.marca }} {{ j.vehiculo.modelo }} •
+                        <i class="fa-solid fa-user"></i> {{ j.chofer.usuario.get_full_name|default:j.chofer.usuario.username }}
+                    </div>
+                    <button type="button" class="btn btn-green"
+                        onclick="iniciarJornadaGps({{ j.id }}, '{{ j.vehiculo.placa|escapejs }}', '{{ j.ruta.nombre|escapejs }}', '{{ j.vehiculo.marca|escapejs }} {{ j.vehiculo.modelo|escapejs }}', {{ j.calcular_distancia_real_km|stringformat:'f' }})">
+                        <i class="fa-solid fa-location-arrow"></i>
+                        {% if j.estado == 'en_curso' %}Continuar Transmitiendo GPS{% else %}Iniciar Jornada y Activar GPS{% endif %}
+                    </button>
+                </div>
+                {% empty %}
+                <div style="text-align: center; padding: 20px 10px; color: #94a3b8; font-size: 13px;">
+                    <i class="fa-solid fa-calendar-xmark" style="font-size: 28px; color: #475569; margin-bottom: 8px; display: block;"></i>
+                    No tienes jornadas pendientes o en curso asignadas actualmente.
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if es_admin %}
+            <div class="card">
+                <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px; color: #93c5fd;">
+                    <i class="fa-solid fa-plus-circle"></i> Asignación Rápida (Administrador)
+                </div>
+                <form action="{% url 'jornada_crear' %}" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="next_url" value="{% url 'dashboard_chofer_gps' %}">
+                    <select name="ruta" class="form-control" required>
+                        {% for r in rutas %}
+                        <option value="{{ r.id }}">{{ r.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="vehiculo" class="form-control" required>
+                        {% for v in vehiculos %}
+                        <option value="{{ v.id }}">[{{ v.placa }}] {{ v.marca }} {{ v.modelo }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="chofer" class="form-control" required>
+                        {% for c in choferes %}
+                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="fecha" value="{{ hoy|date:'Y-m-d' }}">
+                    <button type="submit" class="btn btn-outline">
+                        <i class="fa-solid fa-check"></i> Crear Jornada para Probar Ahora
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Modal: Reportar Incidencia -->
+    <div id="modalIncidencia" class="modal-bg">
+        <div class="modal-card">
+            <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #fca5a5;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Reportar Incidencia en Ruta
+            </h3>
+            <textarea id="incDesc" class="form-control" rows="3" placeholder="Describe el problema (ej. vía obstruida, falla mecánica, contenedor saturado)..."></textarea>
+            <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px;">Foto de evidencia (opcional):</label>
+            <input type="file" id="incFoto" accept="image/*" capture="environment" class="form-control">
+            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModales()">Cancelar</button>
+                <button type="button" class="btn btn-red" id="btnEnviarInc" onclick="enviarIncidencia()">Enviar Reporte</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Finalizar Jornada -->
+    <div id="modalFinalizar" class="modal-bg">
+        <div class="modal-card">
+            <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #34d399;">
+                <i class="fa-solid fa-flag-checkered"></i> Finalizar Jornada
+            </h3>
+            <p style="font-size: 13px; color: #94a3b8; margin: 0 0 12px 0;">
+                Se detendrá la transmisión GPS y se registrará la distancia real recorrida en el servidor.
+            </p>
+            <label style="display: block; font-size: 12.5px; color: #e2e8f0; font-weight: 600; margin-bottom: 6px;">
+                Toneladas recolectadas (opcional, para el gráfico semanal):
+            </label>
+            <input type="number" step="0.1" min="0" id="inputToneladas" class="form-control" placeholder="Ej. 4.5">
+            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModales()">Seguir en Ruta</button>
+                <button type="button" class="btn btn-green" id="btnConfirmarFin" onclick="confirmarFinalizarJornada()">Sí, Finalizar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentJornadaId = null;
+        let watchId = null;
+        let clockInterval = null;
+        let startTimeMs = null;
+        let lastSentTimeMs = 0;
+        let lastPoint = null;
+        let totalDistKm = 0;
+        let sentCount = 0;
+        let wakeLock = null;
+
+        let miniMap = null;
+        let userMarker = null;
+        let userTrail = null;
+        const trailCoords = [];
+
+        const OFFLINE_QUEUE_KEY = 'ecoruta_offline_gps_queue_v1';
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return '';
+        }
+
+        function getOfflineQueue() {
+            try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]'); }
+            catch { return []; }
+        }
+
+        function saveOfflineQueue(q) {
+            localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
+            document.getElementById('queueCountValue').textContent = q.length;
+        }
+
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) ** 2;
+            return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('gpsErrorBox');
+            box.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${msg}`;
+            box.style.display = 'block';
+        }
+
+        function clearError() {
+            document.getElementById('gpsErrorBox').style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (location.protocol !== 'https:' && !isLocal) {
+                document.getElementById('httpsWarning').style.display = 'block';
+            }
+            document.getElementById('queueCountValue').textContent = getOfflineQueue().length;
+        });
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (e) {
+                console.log('WakeLock no disponible:', e);
+            }
+        }
+
+        function initMiniMap(lat, lng) {
+            if (!miniMap) {
+                miniMap = L.map('miniMap', { zoomControl: false }).setView([lat, lng], 16);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    subdomains: 'abcd',
+                    maxZoom: 20
+                }).addTo(miniMap);
+                userMarker = L.circleMarker([lat, lng], {
+                    radius: 8,
+                    fillColor: '#10b981',
+                    color: '#ffffff',
+                    weight: 3,
+                    fillOpacity: 1
+                }).addTo(miniMap);
+                userTrail = L.polyline([[lat, lng]], { color: '#10b981', weight: 4 }).addTo(miniMap);
+                setTimeout(() => miniMap.invalidateSize(), 200);
+            } else {
+                userMarker.setLatLng([lat, lng]);
+                userTrail.setLatLngs(trailCoords);
+                miniMap.panTo([lat, lng]);
+            }
+        }
+
+        async function iniciarJornadaGps(jornadaId, placa, rutaNombre, vehiculoModelo, distInicialKm) {
+            clearError();
+            if (!('geolocation' in navigator)) {
+                showError('Este navegador no soporta geolocalización GPS.');
+                return;
+            }
+
+            currentJornadaId = jornadaId;
+            totalDistKm = parseFloat(distInicialKm) || 0;
+            sentCount = 0;
+            lastPoint = null;
+            lastSentTimeMs = 0;
+            trailCoords.length = 0;
+
+            try {
+                const resp = await fetch(`/api/logistica/jornadas/${jornadaId}/iniciar/`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    showError(err.detail || 'No se pudo iniciar la jornada en el servidor.');
+                    return;
+                }
+            } catch (e) {
+                showError('Error de red al conectar con el servidor: ' + e.message);
+                return;
+            }
+
+            document.getElementById('journeySelectionPanel').style.display = 'none';
+            document.getElementById('activeTrackingPanel').style.display = 'block';
+            document.getElementById('activeJourneyTitle').textContent = `[${placa}] ${rutaNombre}`;
+            document.getElementById('activeJourneyMeta').textContent = `${vehiculoModelo} • Jornada #${jornadaId}`;
+            document.getElementById('distValue').textContent = `${totalDistKm.toFixed(2)} km`;
+
+            startTimeMs = Date.now();
+            clockInterval = setInterval(() => {
+                const secs = Math.floor((Date.now() - startTimeMs) / 1000);
+                const h = String(Math.floor(secs / 3600)).padStart(2, '0');
+                const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+                const s = String(secs % 60).padStart(2, '0');
+                document.getElementById('elapsedClock').textContent = `${h}:${m}:${s}`;
+            }, 1000);
+
+            await requestWakeLock();
+
+            watchId = navigator.geolocation.watchPosition(
+                onGpsPosition,
+                onGpsError,
+                { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+            );
+        }
+
+        async function onGpsPosition(position) {
+            clearError();
+            const lat = Number(position.coords.latitude.toFixed(6));
+            const lng = Number(position.coords.longitude.toFixed(6));
+            const acc = position.coords.accuracy ? Number(position.coords.accuracy.toFixed(1)) : 5.0;
+            const rawSpeedMs = position.coords.speed;
+            const speedKmh = (rawSpeedMs !== null && rawSpeedMs >= 0) ? Number((rawSpeedMs * 3.6).toFixed(1)) : 0.0;
+
+            document.getElementById('gpsStatusLabel').textContent = 'GPS Real Activo y Transmitiendo';
+            document.getElementById('speedValue').textContent = speedKmh.toFixed(1);
+            document.getElementById('accValue').textContent = `±${acc} m`;
+            document.getElementById('coordsText').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+            let movedKm = 0;
+            if (lastPoint) {
+                movedKm = haversineKm(lastPoint.lat, lastPoint.lng, lat, lng);
+                if (movedKm >= 0.005 && movedKm < 5.0) {
+                    totalDistKm += movedKm;
+                    document.getElementById('distValue').textContent = `${totalDistKm.toFixed(2)} km`;
+                }
+            }
+
+            trailCoords.push([lat, lng]);
+            if (trailCoords.length > 200) trailCoords.shift();
+            initMiniMap(lat, lng);
+
+            const now = Date.now();
+            const shouldSend = !lastPoint || (now - lastSentTimeMs >= 5000) || (movedKm >= 0.008);
+            if (!shouldSend) return;
+
+            lastPoint = { lat, lng };
+            lastSentTimeMs = now;
+
+            const payload = {
+                jornada: currentJornadaId,
+                latitud: lat.toFixed(6),
+                longitud: lng.toFixed(6),
+                velocidad_kmh: speedKmh,
+                precision_metros: acc
+            };
+
+            try {
+                const resp = await fetch('/api/logistica/puntos/', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    sentCount++;
+                    document.getElementById('sentCountValue').textContent = sentCount;
+                    await flushOfflineQueue();
+                } else {
+                    enqueueOffline(payload);
+                }
+            } catch (e) {
+                enqueueOffline(payload);
+            }
+        }
+
+        function enqueueOffline(payload) {
+            const q = getOfflineQueue();
+            q.push(payload);
+            saveOfflineQueue(q);
+            document.getElementById('gpsStatusLabel').textContent = 'Sin señal • Guardando en cola offline';
+        }
+
+        async function flushOfflineQueue() {
+            const q = getOfflineQueue();
+            if (!q.length) return;
+            try {
+                const resp = await fetch('/api/logistica/coordenadas/sincronizar_lote/', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ puntos: q })
+                });
+                if (resp.ok) {
+                    sentCount += q.length;
+                    document.getElementById('sentCountValue').textContent = sentCount;
+                    saveOfflineQueue([]);
+                }
+            } catch {}
+        }
+
+        function onGpsError(err) {
+            let msg = 'Error de GPS: ';
+            if (err.code === 1) msg += 'Permiso de ubicación denegado. Activa la ubicación para este sitio en los ajustes del navegador.';
+            else if (err.code === 2) msg += 'Señal satelital no disponible. Sal a un área abierta o activa el GPS de alta precisión.';
+            else if (err.code === 3) msg += 'Tiempo de espera agotado buscando satélites. Reintentando...';
+            else msg += err.message;
+            showError(msg);
+            document.getElementById('gpsStatusLabel').textContent = 'Esperando señal GPS...';
+        }
+
+        function abrirModalIncidencia() {
+            document.getElementById('modalIncidencia').classList.add('open');
+        }
+
+        function abrirModalFinalizar() {
+            document.getElementById('modalFinalizar').classList.add('open');
+        }
+
+        function cerrarModales() {
+            document.getElementById('modalIncidencia').classList.remove('open');
+            document.getElementById('modalFinalizar').classList.remove('open');
+        }
+
+        async function enviarIncidencia() {
+            const desc = document.getElementById('incDesc').value.trim();
+            if (!desc) {
+                alert('Por favor escribe una descripción de la incidencia.');
+                return;
+            }
+            const btn = document.getElementById('btnEnviarInc');
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            const formData = new FormData();
+            formData.append('jornada', currentJornadaId);
+            formData.append('descripcion', desc);
+            if (lastPoint) {
+                formData.append('latitud', lastPoint.lat.toFixed(6));
+                formData.append('longitud', lastPoint.lng.toFixed(6));
+            }
+            const fotoInput = document.getElementById('incFoto');
+            if (fotoInput.files && fotoInput.files[0]) {
+                formData.append('foto', fotoInput.files[0]);
+            }
+
+            try {
+                const resp = await fetch('/api/logistica/incidencias/', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                    body: formData
+                });
+                if (resp.ok) {
+                    document.getElementById('incDesc').value = '';
+                    fotoInput.value = '';
+                    cerrarModales();
+                    alert('Incidencia reportada con tu ubicación GPS real.');
+                } else {
+                    alert('No se pudo registrar la incidencia.');
+                }
+            } catch (e) {
+                alert('Error de conexión: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enviar Reporte';
+            }
+        }
+
+        async function confirmarFinalizarJornada() {
+            const btn = document.getElementById('btnConfirmarFin');
+            btn.disabled = true;
+            btn.textContent = 'Guardando...';
+
+            const tonVal = document.getElementById('inputToneladas').value.trim();
+            const body = {};
+            if (tonVal !== '') body.toneladas_recolectadas = tonVal;
+
+            try {
+                await flushOfflineQueue();
+                const resp = await fetch(`/api/logistica/jornadas/${currentJornadaId}/finalizar/`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(body)
+                });
+                if (resp.ok) {
+                    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                    if (clockInterval) clearInterval(clockInterval);
+                    if (wakeLock) wakeLock.release().catch(() => {});
+                    cerrarModales();
+                    location.reload();
+                } else {
+                    const err = await resp.json().catch(() => ({}));
+                    alert(err.detail || 'Error al finalizar la jornada.');
+                }
+            } catch (e) {
+                alert('Error de conexión: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sí, Finalizar';
+            }
+        }
+    </script>
+</body>
+</html>

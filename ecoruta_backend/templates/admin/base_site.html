@@ -1,302 +1,471 @@
 {% extends "admin/base.html" %}
 {% load static %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | EcoRuta Admin{% endblock %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | Aseo Urbano Anaco{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
     :root {
-        --eco-green: #10b981;
-        --eco-dark-green: #059669;
-        --bg-dark: #0b132b;
-        --card-bg: rgba(15, 23, 42, 0.75);
-        --text-light: #f8fafc;
-        --text-muted: #94a3b8;
-        --glass-border: rgba(255, 255, 255, 0.08);
-        --header-bg: rgba(11, 19, 43, 0.85);
+        /* Tema Institucional Claro Aseo Urbano Anaco */
+        --bg-body: #f1f5f9;
+        --card-bg: #ffffff;
+        --card-border: #cbd5e1;
+        --card-border-subtle: #e2e8f0;
+        --header-bg: #1e293b;
+        
+        --text-main: #0f172a;
+        --text-secondary: #334155;
+        --text-muted: #64748b;
+        
+        --accent-green: #15803d;
+        --accent-green-hover: #166534;
+        --accent-green-subtle: #dcfce7;
+        
+        --accent-blue: #1d4ed8;
+        --accent-blue-hover: #1e40af;
+        --accent-blue-subtle: #dbeafe;
+
+        --accent-red: #b91c1c;
+        --accent-red-subtle: #fee2e2;
     }
 
     body {
-        font-family: 'Outfit', sans-serif !important;
-        background-color: var(--bg-dark) !important;
-        color: var(--text-light) !important;
-        background-image: 
-            radial-gradient(circle at 5% 5%, rgba(16, 185, 129, 0.15) 0%, transparent 500px),
-            radial-gradient(circle at 95% 95%, rgba(59, 130, 246, 0.12) 0%, transparent 500px) !important;
-        background-attachment: fixed !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        background-color: var(--bg-body) !important;
+        color: var(--text-main) !important;
         margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* Header Superior */
+    /* Header Superior Institucional */
     #header {
         background: var(--header-bg) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
-        padding: 16px 32px !important;
-        color: var(--text-light) !important;
+        border-bottom: 3px solid var(--accent-green) !important;
+        padding: 12px 28px !important;
+        color: #ffffff !important;
         display: flex !important;
         align-items: center !important;
         justify-content: space-between !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        min-height: 62px !important;
+        box-sizing: border-box !important;
+    }
+
+    #branding {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
     }
 
     #branding h1 {
         font-family: 'Outfit', sans-serif !important;
-        font-size: 24px !important;
-        font-weight: 700 !important;
-        color: var(--eco-green) !important;
+        font-size: 19px !important;
+        font-weight: 800 !important;
+        color: #ffffff !important;
         margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
     }
 
     #branding h1 a:link, #branding h1 a:visited {
-        color: var(--eco-green) !important;
+        color: #ffffff !important;
         text-decoration: none !important;
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
     }
 
+    .brand-sub {
+        font-size: 11.5px !important;
+        font-weight: 500 !important;
+        color: #94a3b8 !important;
+        display: block !important;
+        margin-top: 1px !important;
+    }
+
+    /* Herramientas de Usuario */
     #user-tools {
-        font-size: 14px !important;
-        color: var(--text-muted) !important;
+        font-size: 13px !important;
+        color: #cbd5e1 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 0 !important;
     }
 
     #user-tools a {
-        color: #ffffff !important;
+        color: #cbd5e1 !important;
         text-decoration: none !important;
         font-weight: 600 !important;
-        margin: 0 6px !important;
-        padding: 8px 16px !important;
-        border-radius: 10px !important;
-        background: rgba(16, 185, 129, 0.15) !important;
-        border: 1px solid rgba(16, 185, 129, 0.3) !important;
-        transition: all 0.2s ease !important;
+        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        transition: all 0.15s ease !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        font-size: 12px !important;
     }
 
     #user-tools a:hover {
-        background: var(--eco-green) !important;
+        background: rgba(255, 255, 255, 0.18) !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
     }
 
-    /* Breadcrumbs */
+    #user-tools a.btn-dashboard {
+        background: var(--accent-green) !important;
+        color: #ffffff !important;
+        border: 1px solid #16a34a !important;
+        font-weight: 700 !important;
+    }
+
+    #user-tools a.btn-dashboard:hover {
+        background: var(--accent-green-hover) !important;
+    }
+
+    /* Barra de Navegación / Breadcrumbs */
     div.breadcrumbs {
-        background: rgba(15, 23, 42, 0.5) !important;
-        backdrop-filter: blur(10px) !important;
-        border-bottom: 1px solid var(--glass-border) !important;
-        padding: 12px 32px !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid var(--card-border-subtle) !important;
+        padding: 10px 28px !important;
         color: var(--text-muted) !important;
-        font-size: 13px !important;
+        font-size: 12.5px !important;
+        font-weight: 500 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
     }
 
     div.breadcrumbs a {
-        color: var(--eco-green) !important;
+        color: var(--accent-blue) !important;
+        text-decoration: none !important;
         font-weight: 600 !important;
     }
 
-    /* Módulos y Tarjetas Glassmorphism */
+    div.breadcrumbs a:hover {
+        text-decoration: underline !important;
+    }
+
+    /* Contenedor Principal */
+    #container {
+        background: var(--bg-body) !important;
+        min-height: calc(100vh - 62px) !important;
+    }
+
+    #content {
+        padding: 24px 28px !important;
+        max-width: 1360px !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+    }
+
+    #content > h1 {
+        font-size: 20px !important;
+        font-weight: 800 !important;
+        color: var(--text-main) !important;
+        margin: 0 0 18px 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    /* Módulos de Aplicaciones y Tablas */
     .module, div.inline-group, #content-related .module {
-        background: var(--card-bg) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border: 1px solid var(--glass-border) !important;
-        border-radius: 20px !important;
-        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35) !important;
-        margin-bottom: 28px !important;
+        background: #ffffff !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        margin-bottom: 24px !important;
         overflow: hidden !important;
     }
 
     .module caption, .module h2, div.inline-group h2, #content-related h2 {
-        background: linear-gradient(90deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.05)) !important;
-        color: #34d399 !important;
-        font-size: 15px !important;
+        background: #f8fafc !important;
+        color: var(--text-main) !important;
+        font-size: 14px !important;
         font-weight: 700 !important;
-        padding: 16px 24px !important;
-        border-bottom: 1px solid var(--glass-border) !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.8px !important;
+        padding: 14px 20px !important;
+        border-bottom: 1px solid var(--card-border-subtle) !important;
+        border-left: 4px solid var(--accent-green) !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
         margin: 0 !important;
     }
 
-    /* Tablas dentro del admin */
+    #content-related h2 {
+        border-left-color: var(--accent-blue) !important;
+    }
+
+    /* Tablas */
     table {
         width: 100% !important;
         border-collapse: collapse !important;
-        background: transparent !important;
+        background: #ffffff !important;
     }
 
     th {
-        background: rgba(15, 23, 42, 0.7) !important;
-        color: var(--text-muted) !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-        padding: 16px 20px !important;
-        border-bottom: 1px solid var(--glass-border) !important;
+        background: #f8fafc !important;
+        color: var(--text-secondary) !important;
+        font-size: 12.5px !important;
+        font-weight: 700 !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        padding: 12px 18px !important;
+        border-bottom: 1px solid var(--card-border-subtle) !important;
     }
 
     td {
-        padding: 16px 20px !important;
-        color: var(--text-light) !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
-        font-size: 14px !important;
-        background: transparent !important;
+        padding: 12px 18px !important;
+        color: var(--text-main) !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        font-size: 13.5px !important;
+        background: #ffffff !important;
     }
 
-    tr {
-        background: transparent !important;
-        transition: all 0.2s ease !important;
-    }
-
-    tr:hover {
-        background: rgba(16, 185, 129, 0.06) !important;
+    tr:hover td {
+        background: #f8fafc !important;
     }
 
     a:link, a:visited {
-        color: #f8fafc;
+        color: var(--accent-blue);
         text-decoration: none;
     }
 
     a:hover {
-        color: #34d399;
+        text-decoration: underline;
     }
 
-    /* Estilos para Enlaces de Acción (Añadir, Modificar, Eliminar) */
-    .addlink, .changelink, .deletelink, .viewlink {
+    /* Botón Píldora para Añadir Registros */
+    .btn-add-pill {
         display: inline-flex !important;
         align-items: center !important;
-        justify-content: center !important;
-        gap: 6px !important;
-        padding: 8px 14px !important;
-        border-radius: 10px !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease !important;
+        gap: 5px !important;
+        padding: 5px 11px !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        background: var(--accent-green-subtle) !important;
+        color: var(--accent-green) !important;
+        border: 1px solid #bbf7d0 !important;
         text-decoration: none !important;
-        background-image: none !important;
+        transition: all 0.15s ease !important;
     }
 
-    .addlink {
-        background: rgba(16, 185, 129, 0.15) !important;
-        border: 1px solid rgba(16, 185, 129, 0.3) !important;
-        color: #34d399 !important;
+    .btn-add-pill:hover {
+        background: #bbf7d0 !important;
+        color: var(--accent-green-hover) !important;
+        text-decoration: none !important;
     }
 
-    .addlink:hover {
-        background: rgba(16, 185, 129, 0.3) !important;
+    /* Barra de Búsqueda y Filtros en ChangeList */
+    #toolbar {
+        background: #ffffff !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 8px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 16px !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+    }
+
+    #changelist-search input[type="text"] {
+        padding: 8px 12px !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 6px !important;
+        font-size: 13px !important;
+        outline: none !important;
+        min-width: 260px !important;
+    }
+
+    #changelist-search input[type="text"]:focus {
+        border-color: var(--accent-green) !important;
+        box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15) !important;
+    }
+
+    #changelist-search input[type="submit"] {
+        background: var(--accent-green) !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+        border: none !important;
+        padding: 8px 16px !important;
+        border-radius: 6px !important;
+        font-weight: 700 !important;
+        font-size: 13px !important;
+        cursor: pointer !important;
     }
 
-    .changelink {
-        background: rgba(59, 130, 246, 0.15) !important;
-        border: 1px solid rgba(59, 130, 246, 0.3) !important;
-        color: #60a5fa !important;
+    #changelist-search input[type="submit"]:hover {
+        background: var(--accent-green-hover) !important;
     }
 
-    .changelink:hover {
-        background: rgba(59, 130, 246, 0.3) !important;
-        color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+    #changelist-filter {
+        background: #ffffff !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
     }
 
-    .deletelink {
-        background: rgba(239, 68, 68, 0.15) !important;
-        border: 1px solid rgba(239, 68, 68, 0.3) !important;
-        color: #f87171 !important;
+    #changelist-filter h2 {
+        background: #f8fafc !important;
+        color: var(--text-main) !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        padding: 12px 16px !important;
+        border-bottom: 1px solid var(--card-border-subtle) !important;
+        text-transform: none !important;
+        margin: 0 !important;
     }
 
-    .deletelink:hover {
-        background: rgba(239, 68, 68, 0.3) !important;
-        color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
+    #changelist-filter h3 {
+        color: var(--text-secondary) !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        padding: 10px 16px 4px 16px !important;
+        margin: 0 !important;
     }
 
-    /* Fix Sidebar Acciones Recientes */
+    #changelist-filter ul {
+        padding: 0 16px 10px 16px !important;
+        margin: 0 !important;
+    }
+
+    #changelist-filter li.selected a {
+        color: var(--accent-green) !important;
+        font-weight: 700 !important;
+    }
+
+    /* Sidebar de Acciones Recientes */
     #content-related {
         margin-left: 0 !important;
-        background: transparent !important;
-    }
-
-    #content-related .module {
-        background: var(--card-bg) !important;
-        border: 1px solid var(--glass-border) !important;
-        border-radius: 20px !important;
-        padding: 0 !important;
     }
 
     #content-related h3 {
         color: var(--text-muted) !important;
-        font-size: 13px !important;
+        font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 12px 20px 0 20px !important;
+        padding: 12px 16px 4px 16px !important;
         margin: 0 !important;
         text-transform: uppercase !important;
     }
 
     #content-related p, #content-related ul {
-        padding: 16px 20px !important;
+        padding: 12px 16px !important;
         margin: 0 !important;
-        color: var(--text-muted) !important;
-        font-size: 14px !important;
-        list-style: none !important;
+        color: var(--text-secondary) !important;
+        font-size: 13px !important;
     }
 
     #content-related li {
         padding: 8px 0 !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-bottom: 1px solid #f1f5f9 !important;
     }
 
-    /* Botones primarios */
-    .button, input[type=submit], input[type=button], .submit-row input {
-        background: linear-gradient(135deg, #10b981, #059669) !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 12px 24px !important;
-        font-size: 14px !important;
-        font-weight: 700 !important;
+    /* Formularios y Botones de Guardar */
+    .form-row {
+        padding: 14px 20px !important;
+        border-bottom: 1px solid var(--card-border-subtle) !important;
+    }
+
+    fieldset.module {
+        border-radius: 10px !important;
+    }
+
+    input[type="text"], input[type="password"], input[type="email"], input[type="number"], select, textarea {
+        padding: 8px 12px !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 6px !important;
+        font-family: inherit !important;
+        font-size: 13.5px !important;
+        background: #ffffff !important;
+        color: var(--text-main) !important;
+    }
+
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--accent-green) !important;
+        outline: none !important;
+        box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15) !important;
+    }
+
+    .submit-row {
+        background: #ffffff !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 10px !important;
+        padding: 14px 20px !important;
+        display: flex !important;
+        gap: 10px !important;
+        align-items: center !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    }
+
+    .button, input[type=submit], input[type=button] {
+        background: #ffffff !important;
+        border: 1px solid var(--card-border) !important;
+        color: var(--text-secondary) !important;
+        border-radius: 6px !important;
+        padding: 9px 18px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
         cursor: pointer !important;
-        box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3) !important;
-        transition: all 0.2s ease !important;
+        transition: all 0.15s ease !important;
     }
 
     .button:hover, input[type=submit]:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45) !important;
+        background: #f8fafc !important;
+        border-color: #94a3b8 !important;
+    }
+
+    .button.default, input[type=submit].default {
+        background: var(--accent-green) !important;
+        border-color: var(--accent-green) !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    .button.default:hover, input[type=submit].default:hover {
+        background: var(--accent-green-hover) !important;
+    }
+
+    .deletelink-box a.deletelink {
+        color: var(--accent-red) !important;
+        background: var(--accent-red-subtle) !important;
+        border: 1px solid #fecaca !important;
+        padding: 8px 16px !important;
+        border-radius: 6px !important;
+        font-weight: 700 !important;
+        text-decoration: none !important;
     }
 </style>
 {% endblock %}
 
 {% block branding %}
-<h1 id="site-name">
+<div id="branding">
     <a href="{% url 'admin:index' %}">
-        <img src="{% static 'dashboard/img/logo_oficial.jpg' %}?v=3" alt="EcoRuta Logo" style="height: 36px; width: 36px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);">
-        <span>EcoRuta Admin</span>
-    </a>
-</h1>
-{% endblock %}
-
-{% block userlinks %}
-    Bienvenido(a), <strong>{% firstof user.get_full_name user.get_username %}</strong>.
-    {% if site_url %}
-        <a href="{{ site_url }}">Ver Sitio Web</a> /
-    {% endif %}
-    {% if user.has_usable_password %}
-        <a href="{% url 'admin:password_change' %}">Cambiar Contraseña</a> /
-    {% endif %}
-    <a href="{% url 'admin:logout' %}">Cerrar Sesión</a>
-{% endblock %}
-
-{% block nav-global %}
-<div style="margin-left: 20px;">
-    <a href="/dashboard/" style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--glass-border); color: #60a5fa; padding: 8px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; text-decoration: none;">
-        <i class="fa-solid fa-arrow-left" style="margin-right: 6px;"></i> Ir al Dashboard Web
+        <img src="{% static 'dashboard/img/logo.png' %}" alt="Logo Aseo Urbano Anaco" style="height: 38px; width: 38px; border-radius: 8px; object-fit: contain; background: #ffffff; padding: 2px;">
+        <div>
+            <span style="font-size: 17px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">Aseo Urbano Anaco</span>
+            <span class="brand-sub">Panel de Administración del Sistema</span>
+        </div>
     </a>
 </div>
 {% endblock %}
+
+{% block userlinks %}
+    <span style="color: #cbd5e1; font-size: 13px; margin-right: 4px;">
+        <i class="fa-solid fa-user-shield" style="color: #60a5fa; margin-right: 4px;"></i> Conectado: <strong>{{ user.username }}</strong>
+    </span>
+    <a href="/dashboard/" class="btn-dashboard">
+        <i class="fa-solid fa-arrow-left"></i> Volver al Dashboard
+    </a>
+    {% if site_url %}
+        <a href="{{ site_url }}"><i class="fa-solid fa-globe"></i> Ver Sitio</a>
+    {% endif %}
+    {% if user.has_usable_password %}
+        <a href="{% url 'admin:password_change' %}"><i class="fa-solid fa-key"></i> Contraseña</a>
+    {% endif %}
+    <a href="{% url 'admin:logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

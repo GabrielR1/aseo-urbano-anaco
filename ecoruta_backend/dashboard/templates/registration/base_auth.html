@@ -1,53 +1,53 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}EcoRuta - Autenticación{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>{% block title %}Aseo Urbano Anaco - Acceso Administrativo{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
     <style>
         :root {
-            --bg-color: #090d16;
-            --card-bg: rgba(15, 23, 42, 0.75);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-green: #10b981;
-            --accent-green-hover: #059669;
-            --glass-border: rgba(16, 185, 129, 0.25);
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --card-border: #cbd5e1;
+            --text-main: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --accent-green: #15803d;
+            --accent-green-hover: #166534;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             margin: 0;
-            padding: 0;
-            font-family: 'Outfit', sans-serif;
+            padding: 20px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.25) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(5, 150, 105, 0.2) 0%, transparent 45%),
-                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.9), #090d16);
         }
 
         .auth-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 44px 36px;
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 40px 36px;
             width: 100%;
-            max-width: 420px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5),
-                        0 0 30px rgba(16, 185, 129, 0.15);
+            max-width: 410px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
             text-align: center;
             position: relative;
-            overflow: hidden;
-            box-sizing: border-box;
         }
 
         .auth-card::before {
@@ -57,126 +57,134 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, #10b981, #3b82f6, #10b981);
+            background: var(--accent-green);
+            border-radius: 12px 12px 0 0;
         }
 
         .brand-icon-box {
-            width: 64px;
-            height: 64px;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 20px;
+            width: 54px;
+            height: 54px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid var(--card-border);
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 16px auto;
-            color: var(--accent-green);
-            font-size: 30px;
-            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
+            padding: 5px;
         }
 
         .auth-card h2 {
             margin: 0 0 6px 0;
-            font-size: 26px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
             font-weight: 700;
-            color: var(--text-main);
+            color: #0f172a;
+            letter-spacing: -0.3px;
+        }
+
+        .auth-card .auth-subtitle {
+            color: var(--text-muted);
+            margin: 0 0 24px 0;
+            font-size: 13px;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             text-align: left;
             position: relative;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
-            font-size: 13px;
-            color: var(--text-muted);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 700;
         }
 
         .form-control {
             width: 100%;
-            padding: 14px 16px;
-            background: rgba(0, 0, 0, 0.35);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 14px;
-            color: white;
-            font-size: 15px;
-            font-family: 'Outfit', sans-serif;
+            padding: 11px 14px;
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: #0f172a;
+            font-size: 13.5px;
+            font-family: inherit;
             box-sizing: border-box;
-            transition: all 0.3s ease;
+            transition: border-color 0.15s ease;
         }
 
         .form-control:focus {
             outline: none;
-            border-color: var(--accent-green);
-            background: rgba(16, 185, 129, 0.05);
-            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         }
 
         .btn-submit {
             width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #10b981, #059669);
+            padding: 12px;
+            background: var(--accent-green);
             color: white;
             border: none;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: 600;
-            font-family: 'Outfit', sans-serif;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: inherit;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
-            margin-top: 10px;
+            transition: background 0.15s ease;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 14px 30px rgba(16, 185, 129, 0.4);
+            background: var(--accent-green-hover);
         }
 
         .link-text {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            margin-top: 24px;
+            margin-top: 18px;
             color: var(--text-muted);
             text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: color 0.2s;
+            font-size: 12.5px;
+            transition: color 0.15s;
         }
 
         .link-text:hover {
-            color: var(--accent-green);
+            color: #0f172a;
         }
 
         .error-message {
-            color: #fca5a5;
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            padding: 12px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            font-size: 14px;
+            color: #b91c1c;
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 12.5px;
             display: flex;
             align-items: center;
             gap: 8px;
+            text-align: left;
         }
     </style>
+    <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/img/logo.svg' %}">
+    <link rel="alternate icon" type="image/png" href="{% static 'dashboard/img/logo.png' %}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <div class="auth-card">
         <div class="brand-icon-box">
-            <i class="fa-solid fa-leaf"></i>
+            <img src="{% static 'dashboard/img/logo.svg' %}?v=5" alt="Aseo Urbano Logo" style="width: 100%; height: 100%; object-fit: contain;">
         </div>
-        <h2>{% block header %}EcoRuta{% endblock %}</h2>
-        <p style="color: var(--text-muted); margin-bottom: 30px; font-size: 14px;">{% block subheader %}{% endblock %}</p>
+        <h2>{% block header %}Aseo Urbano Anaco{% endblock %}</h2>
+        <p class="auth-subtitle">{% block subheader %}Alcaldía del Municipio Anaco • Control y Monitoreo{% endblock %}</p>
 
         {% block content %}{% endblock %}
     </div>

@@ -1,68 +1,135 @@
 {% extends 'dashboard/base.html' %}
 
-{% block page_title %}Gestión de Recursos y Flota{% endblock %}
+{% block page_title %}Flota de Unidades y Control de Combustible{% endblock %}
 
 {% block content %}
-<div class="grid-3">
-    <div class="glass-card">
-        <h3 style="margin-top: 0; color: var(--text-muted);">Combustible Total Registrado</h3>
-        <p style="font-size: 32px; font-weight: 700; margin: 10px 0; color: var(--accent-red);">{{ total_litros }} <span style="font-size: 16px;">Lts</span></p>
+<!-- Top Stats Metric Grid -->
+<div class="grid-3" style="margin-bottom: 26px;">
+    <div class="glass-card" style="border-left: 4px solid var(--accent-red); position: relative; overflow: hidden;">
+        <div style="position: absolute; right: -15px; top: -15px; width: 90px; height: 90px; background: rgba(239, 68, 68, 0.08); border-radius: 50%; pointer-events: none;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: var(--text-muted); letter-spacing: 0.8px;">Combustible Registrado</span>
+                <h2 style="font-size: 32px; font-weight: 800; margin: 6px 0 0 0; color: var(--accent-red-light); letter-spacing: -0.5px;">
+                    {{ total_litros }} <span style="font-size: 16px; color: var(--text-muted); font-weight: 600;">Lts</span>
+                </h2>
+            </div>
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; color: var(--accent-red-light); font-size: 18px;">
+                <i class="fa-solid fa-gas-pump"></i>
+            </div>
+        </div>
+        <div style="margin-top: 14px; font-size: 12px; color: var(--text-muted);">
+            Volumen acumulado cargado a la flota
+        </div>
     </div>
-    <div class="glass-card">
-        <h3 style="margin-top: 0; color: var(--text-muted);">Costo Total Estimado</h3>
-        <p style="font-size: 32px; font-weight: 700; margin: 10px 0; color: var(--accent-green);">$ {{ costo_total }}</p>
+
+    <div class="glass-card" style="border-left: 4px solid var(--accent-green); position: relative; overflow: hidden;">
+        <div style="position: absolute; right: -15px; top: -15px; width: 90px; height: 90px; background: rgba(16, 185, 129, 0.08); border-radius: 50%; pointer-events: none;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: var(--text-muted); letter-spacing: 0.8px;">Gasto Operativo Diésel</span>
+                <h2 style="font-size: 32px; font-weight: 800; margin: 6px 0 0 0; color: var(--accent-green-light); letter-spacing: -0.5px;">
+                    $ {{ costo_total }} <span style="font-size: 16px; color: var(--text-muted); font-weight: 600;">USD</span>
+                </h2>
+            </div>
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; color: var(--accent-green-light); font-size: 18px;">
+                <i class="fa-solid fa-dollar-sign"></i>
+            </div>
+        </div>
+        <div style="margin-top: 14px; font-size: 12px; color: var(--text-muted);">
+            Inversión total en abastecimiento
+        </div>
     </div>
-    <div class="glass-card">
-        <h3 style="margin-top: 0; color: var(--text-muted);">Promedio de Rendimiento Flota</h3>
-        <p style="font-size: 32px; font-weight: 700; margin: 10px 0; color: var(--accent-blue);">{{ rendimiento_prom }} <span style="font-size: 16px;">Km/L</span></p>
+
+    <div class="glass-card" style="border-left: 4px solid var(--accent-blue); position: relative; overflow: hidden;">
+        <div style="position: absolute; right: -15px; top: -15px; width: 90px; height: 90px; background: rgba(59, 130, 246, 0.08); border-radius: 50%; pointer-events: none;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: var(--text-muted); letter-spacing: 0.8px;">Rendimiento Promedio</span>
+                <h2 style="font-size: 32px; font-weight: 800; margin: 6px 0 0 0; color: #60a5fa; letter-spacing: -0.5px;">
+                    {{ rendimiento_prom }} <span style="font-size: 16px; color: var(--text-muted); font-weight: 600;">Km/L</span>
+                </h2>
+            </div>
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); display: flex; align-items: center; justify-content: center; color: #60a5fa; font-size: 18px;">
+                <i class="fa-solid fa-gauge-high"></i>
+            </div>
+        </div>
+        <div style="margin-top: 14px; font-size: 12px; color: var(--text-muted);">
+            Eficiencia media por kilómetro recorrido
+        </div>
     </div>
 </div>
 
-<div class="glass-card" style="margin-bottom: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-        <h3 style="margin: 0;">Registro de Cargas de Combustible</h3>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <a href="{% url 'exportar_recursos_pdf' %}" style="padding: 10px 18px; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; text-decoration: none; border-radius: 12px; font-weight: bold; transition: all 0.3s ease;">
-                <i class="fa-solid fa-file-pdf" style="margin-right: 6px;"></i> Exportar PDF
+<!-- Fuel Refills Section -->
+<div class="glass-card" style="margin-bottom: 28px; padding: 0; overflow: hidden;">
+    <div style="padding: 20px 24px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div>
+            <h4 style="margin: 0; color: var(--text-main); font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-gas-pump" style="color: var(--accent-green);"></i>
+                Bitácora de Cargas de Combustible
+            </h4>
+            <span style="font-size: 12px; color: var(--text-muted);">Historial de recargas por vehículo y kilometraje</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div class="table-search-bar" style="max-width: 220px;">
+                <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 12px;"></i>
+                <input type="text" id="searchCombustibleInput" placeholder="Buscar por placa...">
+            </div>
+            <a href="{% url 'exportar_recursos_pdf' %}" class="btn-modern" style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-weight: 700;">
+                <i class="fa-solid fa-file-pdf"></i> PDF
             </a>
-            <a href="{% url 'exportar_recursos_excel' %}" style="padding: 10px 18px; background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: #34d399; text-decoration: none; border-radius: 12px; font-weight: bold; transition: all 0.3s ease;">
-                <i class="fa-solid fa-file-excel" style="margin-right: 6px;"></i> Exportar Excel
+            <a href="{% url 'exportar_recursos_excel' %}" class="btn-modern" style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; font-weight: 700;">
+                <i class="fa-solid fa-file-excel"></i> Excel
             </a>
-            <button onclick="abrirModalRecurso()" style="padding: 10px 20px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
-                <i class="fa-solid fa-gas-pump" style="margin-right: 8px;"></i> Guardar Carga
+            <button onclick="abrirModalRecurso()" class="btn-modern btn-primary-green">
+                <i class="fa-solid fa-plus-circle"></i> Guardar Carga
             </button>
         </div>
     </div>
 
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+    <div class="table-responsive">
+        <table class="modern-table" id="combustibleTable">
             <thead>
-                <tr style="border-bottom: 1px solid var(--glass-border);">
-                    <th style="padding: 12px; color: var(--text-muted);">Fecha / Hora</th>
-                    <th style="padding: 12px; color: var(--text-muted);">Vehículo</th>
-                    <th style="padding: 12px; color: var(--text-muted);">Litros</th>
-                    <th style="padding: 12px; color: var(--text-muted);">Costo</th>
-                    <th style="padding: 12px; color: var(--text-muted);">Km Actual</th>
-                    <th style="padding: 12px; color: var(--text-muted); text-align: center;">Acción</th>
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Camión / Placa</th>
+                    <th>Litros Abastecidos</th>
+                    <th>Costo Total ($)</th>
+                    <th>Odómetro Actual</th>
+                    <th style="text-align: center;">Operación</th>
                 </tr>
             </thead>
             <tbody>
                 {% for reg in registros %}
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 12px;">{{ reg.fecha|date:"d/m/Y H:i" }}</td>
-                    <td style="padding: 12px; font-weight: bold; color: var(--accent-green);">{{ reg.vehiculo.placa }}</td>
-                    <td style="padding: 12px;">{{ reg.litros }} L</td>
-                    <td style="padding: 12px; color: #34d399; font-weight: 600;">$ {{ reg.costo_total }}</td>
-                    <td style="padding: 12px;">{{ reg.kilometraje_actual }} km</td>
-                    <td style="padding: 12px; text-align: center;">
-                        <button onclick="abrirModalEliminarRecurso({{ reg.id }})" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
-                            <i class="fa-solid fa-trash"></i>
+                <tr>
+                    <td style="white-space: nowrap; font-size: 13px; color: var(--text-muted);">
+                        <i class="fa-regular fa-clock" style="margin-right: 4px;"></i> {{ reg.fecha|date:"d/m/Y H:i" }}
+                    </td>
+                    <td>
+                        <span style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; font-family: monospace;">
+                            <i class="fa-solid fa-truck" style="margin-right: 4px;"></i> {{ reg.vehiculo.placa }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 700; color: var(--text-main);">{{ reg.litros }} <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">L</span></span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 800; color: #16a34a;">$ {{ reg.costo_total }}</span>
+                    </td>
+                    <td>
+                        <span style="color: var(--text-secondary); font-size: 13px;">{{ reg.kilometraje_actual }} km</span>
+                    </td>
+                    <td style="text-align: center;">
+                        <button onclick="abrirModalEliminarRecurso({{ reg.id }})" class="btn-action-icon" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.35); color: #f87171;" title="Eliminar Carga">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted);">No hay registros de combustible aún.</td>
+                <tr class="empty-row">
+                    <td colspan="6" style="padding: 36px; text-align: center; color: var(--text-muted);">
+                        No hay registros de combustible cargados actualmente.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -70,45 +137,84 @@
     </div>
 </div>
 
-<div class="glass-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
-        <h3 style="margin: 0; color: var(--text-main);">Estado y Control de la Flota de Transporte</h3>
-        <button onclick="abrirModalCrearVehiculo()" style="padding: 10px 20px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); transition: all 0.3s ease;">
-            <i class="fa-solid fa-truck" style="margin-right: 8px;"></i> Guardar Nuevo Vehículo
+<!-- Fleet Management Section -->
+<div class="glass-card" style="padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 24px;">
+        <div>
+            <h3 style="margin: 0; color: var(--text-main); font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-truck-ramp-box" style="color: var(--accent-blue);"></i>
+                Control y Mantenimiento de la Flota de Camiones
+            </h3>
+            <span style="font-size: 12px; color: var(--text-muted);">Capacidad de carga, rendimiento y estado mecánico</span>
+        </div>
+        <button onclick="abrirModalCrearVehiculo()" class="btn-modern btn-primary-blue">
+            <i class="fa-solid fa-plus-circle"></i> Guardar Nuevo Vehículo
         </button>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
         {% for v in vehiculos %}
-        <div class="glass-card" style="padding: 20px; background: rgba(15, 23, 42, 0.5);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <strong style="font-size: 18px; color: var(--accent-blue);">{{ v.placa }}</strong>
+        <div class="glass-card" style="padding: 20px; background: #ffffff; border: 1px solid var(--card-border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-family: monospace; font-size: 18px; font-weight: 800; color: #1d4ed8; background: #eff6ff; padding: 4px 10px; border-radius: 8px; border: 1px solid #bfdbfe;">
+                        {{ v.placa }}
+                    </span>
+                    {% if 'TM' in v.placa %}
+                    <span style="font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; padding: 3px 8px; border-radius: 6px;">
+                        <i class="fa-solid fa-motorcycle"></i> Trimoto
+                    </span>
+                    {% else %}
+                    <span style="font-size: 11px; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 3px 8px; border-radius: 6px;">
+                        <i class="fa-solid fa-truck"></i> Camión
+                    </span>
+                    {% endif %}
+                </div>
                 {% if v.estado == 'activo' %}
-                <span style="color: var(--accent-green); font-size: 13px; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> Activo</span>
+                <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); color: #16a34a; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px;">
+                    <span class="pulsing-badge"></span> Activo
+                </span>
                 {% elif v.estado == 'mantenimiento' %}
-                <span style="color: var(--accent-red); font-size: 13px; font-weight: 600;"><i class="fa-solid fa-wrench"></i> Mantenimiento</span>
+                <span style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #dc2626; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-wrench"></i> Mantenimiento
+                </span>
                 {% else %}
-                <span style="color: var(--text-muted); font-size: 13px; font-weight: 600;"><i class="fa-solid fa-ban"></i> Inactivo</span>
+                <span style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #64748b; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px;">
+                    Inactivo
+                </span>
                 {% endif %}
             </div>
-            <div style="font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px;">
-                <i class="fa-solid fa-truck-moving"></i> {{ v.marca }} {{ v.modelo }}<br>
-                <i class="fa-solid fa-weight-hanging"></i> Capacidad: <strong>{{ v.capacidad_toneladas }} Ton</strong><br>
-                <i class="fa-solid fa-gauge-high"></i> Rendimiento: <strong>{{ v.rendimiento_km_por_litro }} Km/L</strong>
+
+            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);"><i class="fa-solid {% if 'TM' in v.placa %}fa-motorcycle{% else %}fa-truck{% endif %}" style="margin-right: 6px;"></i> Marca / Modelo:</span>
+                    <strong style="color: var(--text-main);">{{ v.marca }} {{ v.modelo }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);"><i class="fa-solid fa-weight-hanging" style="margin-right: 6px;"></i> Capacidad:</span>
+                    <strong style="color: var(--accent-green);">{{ v.capacidad_toneladas }} Ton</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);"><i class="fa-solid fa-gauge-high" style="margin-right: 6px;"></i> Rendimiento:</span>
+                    <strong style="color: #d97706;">{{ v.rendimiento_km_por_litro }} Km/L</strong>
+                </div>
             </div>
-            <div style="display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+
+            <div style="display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--card-border); padding-top: 14px;">
                 <button onclick="abrirModalEditarVehiculo({{ v.id }}, '{{ v.placa|escapejs }}', '{{ v.marca|escapejs }}', '{{ v.modelo|escapejs }}', '{{ v.capacidad_toneladas }}', '{{ v.estado }}', '{{ v.rendimiento_km_por_litro }}')" 
-                        style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--accent-blue); color: #60a5fa; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">
-                    <i class="fa-solid fa-pen"></i> Modificar
+                        class="btn-modern" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 14px; font-size: 12px;">
+                    <i class="fa-solid fa-pen-to-square"></i> Modificar
                 </button>
                 <button onclick="abrirModalEliminarVehiculo({{ v.id }}, '{{ v.placa|escapejs }}')" 
-                        style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-red); color: #f87171; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">
-                    <i class="fa-solid fa-trash"></i> Eliminar
+                        class="btn-modern" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 6px 14px; font-size: 12px;">
+                    <i class="fa-solid fa-trash-can"></i> Eliminar
                 </button>
             </div>
         </div>
         {% empty %}
-        <p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1;">No hay vehículos registrados en la flota.</p>
+        <p style="color: var(--text-muted); text-align: center; grid-column: 1 / -1; padding: 30px;">
+            No hay camiones registrados en la flota todavía.
+        </p>
         {% endfor %}
     </div>
 </div>
@@ -116,34 +222,40 @@
 
 {% block scripts %}
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setupTableSearch('searchCombustibleInput', 'combustibleTable');
+    });
+
     function abrirModalRecurso() {
         var content = `
             <form action="{% url 'recurso_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Vehículo:</label>
-                    <select name="vehiculo" class="form-input" required>
-                        {% for v in vehiculos %}<option value="{{ v.id }}">{{ v.placa }} ({{ v.marca }})</option>{% endfor %}
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Vehículo Abastecido:</label>
+                    <select name="vehiculo" class="form-select" required>
+                        {% for v in vehiculos %}<option value="{{ v.id }}">{{ v.placa }} ({{ v.marca }} {{ v.modelo }})</option>{% endfor %}
                     </select>
                 </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Litros de Combustible:</label>
-                    <input type="number" step="0.01" name="litros" class="form-input" placeholder="Ej. 50.0" required>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Costo Total ($):</label>
-                    <input type="number" step="0.01" name="costo_total" class="form-input" placeholder="Ej. 25.00" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Litros Cargados:</label>
+                        <input type="number" step="0.01" name="litros" class="form-input" placeholder="Ej. 60.0" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Costo Total ($ USD):</label>
+                        <input type="number" step="0.01" name="costo_total" class="form-input" placeholder="Ej. 30.00" required>
+                    </div>
                 </div>
                 <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 600; color: var(--text-muted);">Kilometraje Actual:</label>
-                    <input type="number" name="kilometraje" class="form-input" placeholder="Ej. 45000">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Lectura de Odómetro (Km):</label>
+                    <input type="number" name="kilometraje" class="form-input" placeholder="Ej. 52300">
                 </div>
-                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #10b981, #059669); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;">
-                    <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Registrar Carga
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Registrar Carga de Combustible
                 </button>
             </form>
         `;
-        openModal('Nuevo Registro de Carga', content);
+        openModal('<i class="fa-solid fa-gas-pump" style="color: var(--accent-green-light);"></i> Registrar Abastecimiento', content);
     }
 
     function abrirModalEliminarRecurso(id) {
@@ -151,54 +263,66 @@
         var content = `
             <form action="${actionUrl}" method="post" style="text-align: center;">
                 {% csrf_token %}
-                <p style="font-size: 16px; color: var(--text-main); margin-bottom: 24px;">¿Eliminar este registro de carga de combustible?</p>
+                <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; color: var(--accent-red-light); font-size: 26px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 800;">¿Eliminar este registro?</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px;">Esta acción eliminará el ticket de carga seleccionado de las estadísticas de combustible.</p>
                 <div style="display: flex; gap: 12px;">
-                    <button type="button" onclick="closeModal()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 12px;">Cancelar</button>
-                    <button type="submit" style="flex: 1; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 12px; font-weight: 700;">Eliminar</button>
+                    <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #e2e8f0; color: #334155;">Cancelar</button>
+                    <button type="submit" class="btn-modern" style="flex: 1; background: #dc2626; color: white;">
+                        <i class="fa-solid fa-trash-can"></i> Sí, Eliminar
+                    </button>
                 </div>
             </form>
         `;
-        openModal('Eliminar Registro', content);
+        openModal('<i class="fa-solid fa-trash-can" style="color: var(--accent-red-light);"></i> Confirmar Eliminación', content);
     }
 
     function abrirModalCrearVehiculo() {
         var content = `
             <form action="{% url 'vehiculo_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Placa:</label>
-                    <input type="text" name="placa" class="form-input" placeholder="Ej. A88B99" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Placa del Vehículo:</label>
+                        <input type="text" name="placa" class="form-input" placeholder="Ej. A88B99" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Estado Operativo:</label>
+                        <select name="estado" class="form-select">
+                            <option value="activo">Activo</option>
+                            <option value="mantenimiento">En Mantenimiento</option>
+                            <option value="inactivo">Inactivo</option>
+                        </select>
+                    </div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Marca:</label>
-                    <input type="text" name="marca" class="form-input" placeholder="Ej. Isuzu" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Marca:</label>
+                        <input type="text" name="marca" class="form-input" placeholder="Ej. Isuzu" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Modelo:</label>
+                        <input type="text" name="modelo" class="form-input" placeholder="Ej. Forward 800" required>
+                    </div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Modelo:</label>
-                    <input type="text" name="modelo" class="form-input" placeholder="Ej. Forward 800" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Capacidad (Toneladas):</label>
+                        <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" placeholder="Ej. 12.0" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Rendimiento (Km/L):</label>
+                        <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" placeholder="Ej. 5.5" required>
+                    </div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Capacidad (Toneladas):</label>
-                    <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" placeholder="Ej. 12.0" required>
-                </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Rendimiento (Km/L):</label>
-                    <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" placeholder="Ej. 5.5" required>
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Estado:</label>
-                    <select name="estado" class="form-input">
-                        <option value="activo">Activo</option>
-                        <option value="mantenimiento">En Mantenimiento</option>
-                        <option value="inactivo">Inactivo</option>
-                    </select>
-                </div>
-                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;">
-                    <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Guardar Vehículo
+                <button type="submit" class="btn-modern" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-size: 15px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
+                    <i class="fa-solid fa-truck"></i> Registrar Nuevo Vehículo
                 </button>
             </form>
         `;
-        openModal('Guardar Nuevo Vehículo', content);
+        openModal('<i class="fa-solid fa-truck-medical" style="color: #60a5fa;"></i> Guardar Nuevo Vehículo', content);
     }
 
     function abrirModalEditarVehiculo(id, placa, marca, modelo, capacidad, estado, rendimiento) {
@@ -206,40 +330,46 @@
         var content = `
             <form action="${actionUrl}" method="post" style="text-align: left;">
                 {% csrf_token %}
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Placa:</label>
-                    <input type="text" name="placa" class="form-input" value="${placa}" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Placa:</label>
+                        <input type="text" name="placa" class="form-input" value="${placa}" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Estado:</label>
+                        <select name="estado" class="form-select">
+                            <option value="activo" ${estado==='activo'?'selected':''}>Activo</option>
+                            <option value="mantenimiento" ${estado==='mantenimiento'?'selected':''}>En Mantenimiento</option>
+                            <option value="inactivo" ${estado==='inactivo'?'selected':''}>Inactivo</option>
+                        </select>
+                    </div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Marca:</label>
-                    <input type="text" name="marca" class="form-input" value="${marca}" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Marca:</label>
+                        <input type="text" name="marca" class="form-input" value="${marca}" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Modelo:</label>
+                        <input type="text" name="modelo" class="form-input" value="${modelo}" required>
+                    </div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Modelo:</label>
-                    <input type="text" name="modelo" class="form-input" value="${modelo}" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Capacidad (Ton):</label>
+                        <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" value="${capacidad}" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Rendimiento (Km/L):</label>
+                        <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" value="${rendimiento}" required>
+                    </div>
                 </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Capacidad (Toneladas):</label>
-                    <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" value="${capacidad}" required>
-                </div>
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Rendimiento (Km/L):</label>
-                    <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" value="${rendimiento}" required>
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label style="display:block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">Estado:</label>
-                    <select name="estado" class="form-input">
-                        <option value="activo" ${estado==='activo'?'selected':''}>Activo</option>
-                        <option value="mantenimiento" ${estado==='mantenimiento'?'selected':''}>En Mantenimiento</option>
-                        <option value="inactivo" ${estado==='inactivo'?'selected':''}>Inactivo</option>
-                    </select>
-                </div>
-                <button type="submit" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border:none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;">
-                    <i class="fa-solid fa-pen-to-square" style="margin-right: 8px;"></i> Modificar Vehículo
+                <button type="submit" class="btn-modern" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-size: 15px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
+                    <i class="fa-solid fa-pen-to-square"></i> Actualizar Ficha de Vehículo
                 </button>
             </form>
         `;
-        openModal('Modificar Vehículo', content);
+        openModal('<i class="fa-solid fa-truck" style="color: #60a5fa;"></i> Modificar Vehículo', content);
     }
 
     function abrirModalEliminarVehiculo(id, placa) {
@@ -247,14 +377,20 @@
         var content = `
             <form action="${actionUrl}" method="post" style="text-align: center;">
                 {% csrf_token %}
-                <p style="font-size: 16px; color: var(--text-main); margin-bottom: 24px;">¿Eliminar el vehículo con placa <strong style="color: var(--accent-red);">${placa}</strong>?</p>
+                <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; color: var(--accent-red-light); font-size: 26px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 800;">¿Eliminar este vehículo?</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px;">Se removerá el camión con placa <strong style="color: #dc2626;">${placa}</strong> del inventario de la flota.</p>
                 <div style="display: flex; gap: 12px;">
-                    <button type="button" onclick="closeModal()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 12px;">Cancelar</button>
-                    <button type="submit" style="flex: 1; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 12px; font-weight: 700;">Eliminar</button>
+                    <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #e2e8f0; color: #334155;">Cancelar</button>
+                    <button type="submit" class="btn-modern" style="flex: 1; background: #dc2626; color: white;">
+                        <i class="fa-solid fa-trash-can"></i> Sí, Eliminar
+                    </button>
                 </div>
             </form>
         `;
-        openModal('Confirmar Eliminación', content);
+        openModal('<i class="fa-solid fa-trash-can" style="color: var(--accent-red-light);"></i> Eliminar Vehículo', content);
     }
 </script>
 {% endblock %}
