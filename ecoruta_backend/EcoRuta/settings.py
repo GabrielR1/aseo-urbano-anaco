@@ -216,14 +216,19 @@ AUTH_USER_MODEL = 'security.Usuario'
 
 APP_VERSION = '1.0.0'
 
-# CORS: abierto solo en desarrollo. En producción se declara CORS_ALLOWED_ORIGINS.
+# CORS: abierto en desarrollo; en producción permite Flutter Web local y los orígenes de CORS_ALLOWED_ORIGINS.
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 if not DEBUG:
-    CORS_ALLOWED_ORIGINS = [
+    _default_cors = [
+        'http://127.0.0.1:5050',
+        'http://localhost:5050',
+    ]
+    _env_cors = [
         origin.strip()
         for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
         if origin.strip()
     ]
+    CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_default_cors + _env_cors))
 CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
