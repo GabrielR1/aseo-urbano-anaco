@@ -9,6 +9,7 @@ urlpatterns = [
     path('incentivos/', views.incentivos_listado, name='dashboard_incentivos'),
     path('itinerario/', views.itinerario, name='dashboard_itinerario'),
     path('itinerario/crear/', views.jornada_crear, name='jornada_crear'),
+    path('itinerario/<int:pk>/reprogramar/', views.jornada_reprogramar, name='jornada_reprogramar'),
     path('itinerario/<int:pk>/eliminar/', views.jornada_eliminar, name='jornada_eliminar'),
     path('mapa/', views.mapa_monitoreo, name='dashboard_mapa'),
     path('chofer/', views.chofer_gps_movil, name='dashboard_chofer_gps'),

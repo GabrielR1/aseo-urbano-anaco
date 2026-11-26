@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -5,7 +6,7 @@ import django.utils.timezone
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Prefetch, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -176,7 +177,7 @@ def rutas_gestion(request):
     rutas = Ruta.objects.all().order_by('nombre')
     vehiculos = Vehiculo.objects.all().order_by('placa')
     choferes = _choferes_operativos()
-    hoy = django.utils.timezone.now().date()
+    hoy = django.utils.timezone.localdate()
     context = {
         'rutas': rutas,
         'vehiculos': vehiculos,
@@ -223,19 +224,39 @@ def conductores_gestion(request):
 
 @admin_required
 def itinerario(request):
-    jornadas = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').all().order_by('-fecha', '-id')
+    jornadas = (
+        Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario')
+        .all()
+        .order_by('-fecha', '-id')
+    )
     rutas = Ruta.objects.all().order_by('nombre')
-    vehiculos = Vehiculo.objects.all().order_by('placa')
+    vehiculos = sorted(
+        Vehiculo.objects.all().order_by('placa'),
+        key=lambda v: (0 if v.estado == 'activo' else (1 if v.estado == 'mantenimiento' else 2), v.placa),
+    )
     choferes = _choferes_operativos()
-    hoy = django.utils.timezone.now().date()
+    hoy = django.utils.timezone.localdate()
+    manana = hoy + timedelta(days=1)
+
+    jornadas_hoy_qs = Jornada.objects.filter(fecha=hoy, estado__in=['pendiente', 'en_curso'])
+    vehiculos_ocupados_hoy = set(jornadas_hoy_qs.values_list('vehiculo_id', flat=True))
+    choferes_ocupados_hoy = set(jornadas_hoy_qs.values_list('chofer_id', flat=True))
+
     context = {
         'jornadas': jornadas,
         'rutas': rutas,
         'vehiculos': vehiculos,
         'choferes': choferes,
         'hoy': hoy,
+        'manana': manana,
+        'vehiculos_ocupados_hoy': vehiculos_ocupados_hoy,
+        'choferes_ocupados_hoy': choferes_ocupados_hoy,
+        'total_pendientes': sum(1 for j in jornadas if j.estado == 'pendiente'),
+        'total_en_curso': sum(1 for j in jornadas if j.estado == 'en_curso'),
+        'total_finalizadas': sum(1 for j in jornadas if j.estado == 'finalizada'),
     }
     return render(request, 'dashboard/itinerario.html', context)
+
 
 @admin_required
 def jornada_crear(request):
@@ -244,12 +265,25 @@ def jornada_crear(request):
         ruta_id = request.POST.get('ruta')
         chofer_id = request.POST.get('chofer')
         fecha_raw = (request.POST.get('fecha') or '').strip()
-        fecha = parse_date(fecha_raw) if fecha_raw else django.utils.timezone.localdate()
+        fechas_multiples_raw = (request.POST.get('fechas_multiples') or '').strip()
         next_url = request.POST.get('next_url')
 
-        if fecha is None:
-            messages.error(request, 'La fecha indicada no es válida.')
-            return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
+        fechas_objetivo = []
+        if fechas_multiples_raw:
+            for item in fechas_multiples_raw.split(','):
+                parsed = parse_date(item.strip())
+                if parsed is None:
+                    messages.error(request, 'Una de las fechas seleccionadas no es válida.')
+                    return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
+                if parsed not in fechas_objetivo:
+                    fechas_objetivo.append(parsed)
+            fechas_objetivo = sorted(fechas_objetivo)[:14]
+        else:
+            fecha = parse_date(fecha_raw) if fecha_raw else django.utils.timezone.localdate()
+            if fecha is None:
+                messages.error(request, 'La fecha indicada no es válida.')
+                return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
+            fechas_objetivo = [fecha]
 
         vehiculo = Vehiculo.objects.filter(pk=_parse_entero(vehiculo_id)).first()
         ruta = Ruta.objects.filter(pk=_parse_entero(ruta_id)).first()
@@ -260,28 +294,147 @@ def jornada_crear(request):
             messages.error(request, 'Debes seleccionar una ruta y un vehículo válidos.')
             return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
 
-        if chofer:
-            jornada = Jornada.objects.create(
+        if not chofer:
+            messages.error(request, 'Error al asignar el recorrido. Verifica que haya conductores registrados en el sistema.')
+            return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
+
+        if vehiculo.estado != 'activo':
+            messages.warning(
+                request,
+                f'Aviso: la unidad [{vehiculo.placa}] figura como "{vehiculo.get_estado_display()}". Verifica su operatividad antes de salir.',
+            )
+
+        creadas = []
+        omitidas_duplicado = 0
+        avisos_solape = 0
+        for fecha_item in fechas_objetivo:
+            if Jornada.objects.filter(
                 vehiculo=vehiculo,
                 ruta=ruta,
                 chofer=chofer,
-                fecha=fecha,
-                estado='pendiente'
+                fecha=fecha_item,
+                estado__in=['pendiente', 'en_curso'],
+            ).exists():
+                omitidas_duplicado += 1
+                continue
+
+            if Jornada.objects.filter(
+                fecha=fecha_item,
+                estado__in=['pendiente', 'en_curso'],
+            ).filter(vehiculo=vehiculo).exists() or Jornada.objects.filter(
+                fecha=fecha_item,
+                estado__in=['pendiente', 'en_curso'],
+                chofer=chofer,
+            ).exists():
+                avisos_solape += 1
+
+            creadas.append(
+                Jornada.objects.create(
+                    vehiculo=vehiculo,
+                    ruta=ruta,
+                    chofer=chofer,
+                    fecha=fecha_item,
+                    estado='pendiente',
+                )
             )
-            # Registro en auditoría
+
+        chofer_nombre = chofer.usuario.get_full_name() or chofer.usuario.username
+        if creadas:
+            fechas_txt = ', '.join(j.fecha.strftime('%d/%m/%Y') for j in creadas)
             RegistroAuditoria.objects.create(
                 usuario=request.user,
                 accion='CREAR',
                 tabla_afectada='Jornada Asignada',
-                detalles=f"Asignación de ruta '{ruta.nombre}' a la unidad [{vehiculo.placa}] con el conductor '{chofer.usuario.get_full_name() or chofer.usuario.username}'. (Rastreo GPS mediante el teléfono móvil del chofer)"
+                detalles=(
+                    f"Programadas {len(creadas)} jornada(s) para '{ruta.nombre}' con unidad "
+                    f"[{vehiculo.placa}] y chofer '{chofer_nombre}' ({fechas_txt})."
+                ),
             )
-            messages.success(request, f'¡Ruta "{ruta.nombre}" asignada con éxito al camión [{vehiculo.placa}] con el conductor {chofer.usuario.get_full_name() or chofer.usuario.username}! El seguimiento satelital rastreará el móvil del chofer.')
+            if len(creadas) == 1:
+                msg = (
+                    f'¡Ruta "{ruta.nombre}" asignada a [{vehiculo.placa}] con {chofer_nombre} '
+                    f'para el {creadas[0].fecha.strftime("%d/%m/%Y")}!'
+                )
+            else:
+                msg = (
+                    f'¡{len(creadas)} jornadas programadas para "{ruta.nombre}" '
+                    f'([{vehiculo.placa}] • {chofer_nombre})!'
+                )
+            if omitidas_duplicado:
+                msg += f' ({omitidas_duplicado} omitida(s) por duplicado).'
+            messages.success(request, msg)
+            if avisos_solape:
+                messages.warning(
+                    request,
+                    f'Nota operativa: la unidad o el chofer ya tenía otra salida en {avisos_solape} de esas fechas.',
+                )
         else:
-            messages.error(request, 'Error al asignar el recorrido. Verifica que haya conductores registrados en el sistema.')
+            messages.info(
+                request,
+                f'Esa misma asignación ({ruta.nombre} • [{vehiculo.placa}] • {chofer_nombre}) ya existía en la(s) fecha(s) seleccionada(s).',
+            )
 
         return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
 
     return redirect('dashboard_itinerario')
+
+
+@admin_required
+def jornada_reprogramar(request, pk):
+    jornada = get_object_or_404(Jornada.objects.select_related('ruta', 'vehiculo', 'chofer__usuario'), pk=pk)
+    wants_json = (
+        'application/json' in (request.content_type or '')
+        or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    )
+    if request.method != 'POST':
+        if wants_json:
+            return JsonResponse({'ok': False, 'error': 'Método no permitido.'}, status=405)
+        return redirect('dashboard_itinerario')
+
+    if jornada.estado != 'pendiente':
+        msg = 'Solo se pueden reprogramar jornadas en estado Pendiente.'
+        if wants_json:
+            return JsonResponse({'ok': False, 'error': msg}, status=400)
+        messages.error(request, msg)
+        return redirect('dashboard_itinerario')
+
+    fecha_raw = ''
+    if 'application/json' in (request.content_type or ''):
+        try:
+            payload = json.loads(request.body.decode('utf-8') or '{}')
+            fecha_raw = str(payload.get('fecha') or '').strip()
+        except (ValueError, UnicodeDecodeError):
+            fecha_raw = ''
+    else:
+        fecha_raw = (request.POST.get('fecha') or '').strip()
+
+    nueva_fecha = parse_date(fecha_raw)
+    if nueva_fecha is None:
+        msg = 'La nueva fecha indicada no es válida.'
+        if wants_json:
+            return JsonResponse({'ok': False, 'error': msg}, status=400)
+        messages.error(request, msg)
+        return redirect('dashboard_itinerario')
+
+    fecha_anterior = jornada.fecha
+    jornada.fecha = nueva_fecha
+    jornada.save(update_fields=['fecha', 'actualizado_en'])
+
+    RegistroAuditoria.objects.create(
+        usuario=request.user,
+        accion='MODIFICAR',
+        tabla_afectada='Jornada Asignada',
+        detalles=(
+            f"Reprogramada jornada #{jornada.id} ({jornada.ruta.nombre} • [{jornada.vehiculo.placa}]) "
+            f"del {fecha_anterior.strftime('%d/%m/%Y')} al {nueva_fecha.strftime('%d/%m/%Y')}."
+        ),
+    )
+
+    msg = f'Jornada "{jornada.ruta.nombre}" movida al {nueva_fecha.strftime("%d/%m/%Y")}.'
+    if wants_json:
+        return JsonResponse({'ok': True, 'fecha': nueva_fecha.isoformat(), 'mensaje': msg})
+    messages.success(request, msg)
+    return _redirigir_seguro(request, request.POST.get('next_url'), 'dashboard_itinerario')
 
 
 @admin_required

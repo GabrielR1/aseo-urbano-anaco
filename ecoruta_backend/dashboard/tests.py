@@ -195,3 +195,55 @@ class PanelPermisosTests(TestCase):
             response = self.client.get(reverse('login'))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'Acceso de Demostración')
+
+    def test_programacion_multiple_dias_y_evita_duplicados(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('jornada_crear'),
+            {
+                'vehiculo': self.vehiculo.pk,
+                'ruta': self.ruta.pk,
+                'chofer': self.chofer.pk,
+                'fechas_multiples': '2026-12-01,2026-12-03,2026-12-05',
+            },
+        )
+        self.assertRedirects(response, reverse('dashboard_itinerario'))
+        self.assertEqual(Jornada.objects.filter(fecha__year=2026, fecha__month=12).count(), 3)
+
+        # Reenviar las mismas fechas no debe duplicar jornadas pendientes
+        self.client.post(
+            reverse('jornada_crear'),
+            {
+                'vehiculo': self.vehiculo.pk,
+                'ruta': self.ruta.pk,
+                'chofer': self.chofer.pk,
+                'fechas_multiples': '2026-12-01,2026-12-03,2026-12-05',
+            },
+        )
+        self.assertEqual(Jornada.objects.filter(fecha__year=2026, fecha__month=12).count(), 3)
+
+    def test_reprogramar_jornada_pendiente_por_ajax(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('jornada_reprogramar', args=[self.jornada.pk]),
+            data='{"fecha": "2026-12-10"}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.jornada.refresh_from_db()
+        self.assertEqual(self.jornada.fecha.isoformat(), '2026-12-10')
+
+    def test_no_se_puede_reprogramar_jornada_en_curso(self):
+        self.jornada.estado = 'en_curso'
+        self.jornada.save(update_fields=['estado'])
+        self.jornada.refresh_from_db()
+        fecha_orig = self.jornada.fecha
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('jornada_reprogramar', args=[self.jornada.pk]),
+            data='{"fecha": "2026-12-15"}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.jornada.refresh_from_db()
+        self.assertEqual(self.jornada.fecha, fecha_orig)

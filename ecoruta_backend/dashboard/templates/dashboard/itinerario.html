@@ -1,11 +1,83 @@
 {% extends 'dashboard/base.html' %}
 
-{% block page_title %}Planificación de Jornadas de Recolección{% endblock %}
+{% block page_title %}Gestión y Programación de Rutas{% endblock %}
 
 {% block extra_head %}
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js'></script>
 <style>
+    .dispatch-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1.2fr 1.2fr 0.9fr auto;
+        gap: 12px;
+        align-items: end;
+    }
+    @media (max-width: 1120px) {
+        .dispatch-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    @media (max-width: 640px) {
+        .dispatch-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .dispatch-field label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        margin-bottom: 5px;
+    }
+    .quick-chips-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px dashed var(--card-border);
+    }
+    .chip-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .preset-chip, .day-chip, .filter-pill {
+        border: 1px solid var(--card-border);
+        background: #ffffff;
+        color: var(--text-secondary);
+        border-radius: 8px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .preset-chip:hover, .day-chip:hover, .filter-pill:hover {
+        border-color: #94a3b8;
+        background: #f8fafc;
+    }
+    .preset-chip.active, .filter-pill.active {
+        background: #1d4ed8;
+        border-color: #1d4ed8;
+        color: #ffffff;
+    }
+    .day-chip {
+        width: 32px;
+        height: 30px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .day-chip.active {
+        background: #15803d;
+        border-color: #15803d;
+        color: #ffffff;
+    }
     .fc-theme-standard td, .fc-theme-standard th {
         border-color: var(--card-border) !important;
     }
@@ -14,6 +86,7 @@
         font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-size: 18px !important;
         font-weight: 800 !important;
+        text-transform: capitalize;
     }
     .fc .fc-button-primary {
         background: #ffffff !important;
@@ -36,10 +109,37 @@
         border-color: #1d4ed8 !important;
         color: #ffffff !important;
     }
+    .fc-daygrid-day {
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .fc-daygrid-day:hover {
+        background: #f0fdf4 !important;
+    }
+    .fc-daygrid-day-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 6px 0 6px;
+    }
+    .fc-day-add-hint {
+        opacity: 0;
+        font-size: 10.5px;
+        font-weight: 800;
+        color: #15803d;
+        background: #dcfce7;
+        border-radius: 6px;
+        padding: 1px 6px;
+        transition: opacity 0.15s ease;
+        pointer-events: none;
+    }
+    .fc-daygrid-day:hover .fc-day-add-hint {
+        opacity: 1;
+    }
     .fc-daygrid-day-number {
         color: var(--text-secondary) !important;
         font-weight: 700 !important;
-        padding: 8px !important;
+        padding: 4px !important;
     }
     .fc-col-header-cell-cushion {
         color: var(--text-main) !important;
@@ -49,74 +149,198 @@
         letter-spacing: 0.5px !important;
     }
     .fc-day-today {
-        background: #f0fdf4 !important;
+        background: #eff6ff !important;
     }
     .fc-event {
         border-radius: 6px !important;
         padding: 3px 6px !important;
         font-weight: 700 !important;
-        font-size: 12px !important;
+        font-size: 11.5px !important;
         border: none !important;
         color: #ffffff !important;
+        cursor: pointer !important;
+    }
+    .cal-toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        padding: 12px 18px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #ffffff;
+        background: #15803d;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.22);
+        transform: translateY(20px);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.2s ease;
+    }
+    .cal-toast.show {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    .cal-toast.error {
+        background: #dc2626;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Header Bar -->
-<div class="glass-card" style="margin-bottom: 24px;">
-    <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+<!-- Barra de Despacho Rápido (1 paso, sin abrir modales) -->
+<div class="glass-card" style="margin-bottom: 20px; border-left: 4px solid var(--accent-green);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
         <div>
-            <h3 style="margin: 0; color: var(--text-main); font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-calendar-days" style="color: var(--accent-green);"></i>
-                Gestión y Programación de Jornadas
+            <h3 style="margin: 0; color: var(--text-main); font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 9px;">
+                <i class="fa-solid fa-bolt" style="color: var(--accent-green);"></i>
+                Despacho Rápido de Rutas
             </h3>
-            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 13px;">
-                Programa y distribuye los camiones y cuadrillas en el calendario de turnos.
+            <p style="margin: 3px 0 0 0; color: var(--text-muted); font-size: 12.5px;">
+                Asigna una salida para hoy o programa toda la semana en un solo clic.
             </p>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <div class="table-search-bar">
-                <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 12px;"></i>
-                <input type="text" id="searchJornadasInput" placeholder="Buscar en listado de jornadas...">
+        <span id="quickMultiSummary" style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 800;">
+            1 salida a programar ({{ hoy|date:"d/m/Y" }})
+        </span>
+    </div>
+
+    <form action="{% url 'jornada_crear' %}" method="post" id="quickDispatchForm">
+        {% csrf_token %}
+        <input type="hidden" name="next_url" value="{% url 'dashboard_itinerario' %}">
+        <input type="hidden" name="fechas_multiples" id="quickFechasMultiples" value="">
+
+        <div class="dispatch-grid">
+            <div class="dispatch-field">
+                <label for="quickRuta"><i class="fa-solid fa-route" style="color: var(--accent-green);"></i> Ruta / Sector</label>
+                <select name="ruta" id="quickRuta" class="form-select" required>
+                    {% for r in rutas %}
+                    <option value="{{ r.id }}">{{ r.nombre }} ({{ r.distancia_estimada_km }} km)</option>
+                    {% empty %}
+                    <option value="">Registra una ruta primero</option>
+                    {% endfor %}
+                </select>
             </div>
-            <button onclick="abrirModalAsignar()" class="btn-modern btn-primary-green">
-                <i class="fa-solid fa-plus-circle"></i> Asignar Recorrido
+
+            <div class="dispatch-field">
+                <label for="quickVehiculo"><i class="fa-solid fa-truck" style="color: #2563eb;"></i> Unidad</label>
+                <select name="vehiculo" id="quickVehiculo" class="form-select" required>
+                    {% for v in vehiculos %}
+                    <option value="{{ v.id }}">
+                        {{ v.placa }} · {{ v.marca }} {{ v.modelo }}{% if v.estado != 'activo' %} [{{ v.get_estado_display }}]{% elif v.id in vehiculos_ocupados_hoy %} (con turno hoy){% endif %}
+                    </option>
+                    {% empty %}
+                    <option value="">Sin unidades</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="dispatch-field">
+                <label for="quickChofer"><i class="fa-solid fa-id-card" style="color: #0369a1;"></i> Chofer</label>
+                <select name="chofer" id="quickChofer" class="form-select" required>
+                    {% for c in choferes %}
+                    <option value="{{ c.id }}">
+                        {{ c.usuario.get_full_name|default:c.usuario.username }}{% if c.id in choferes_ocupados_hoy %} (con turno hoy){% endif %}
+                    </option>
+                    {% empty %}
+                    <option value="">Sin choferes operativos</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="dispatch-field">
+                <label for="quickFecha"><i class="fa-regular fa-calendar" style="color: var(--text-muted);"></i> Fecha base</label>
+                <input type="date" name="fecha" id="quickFecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" required onchange="onQuickFechaChange()">
+            </div>
+
+            <div>
+                <button type="submit" class="btn-modern btn-primary-green" style="height: 42px; padding: 0 20px; white-space: nowrap; font-weight: 800; width: 100%;">
+                    <i class="fa-solid fa-paper-plane"></i> Asignar
+                </button>
+            </div>
+        </div>
+
+        <div class="quick-chips-row">
+            <div class="chip-group">
+                <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-right: 4px;">Frecuencia:</span>
+                <button type="button" class="preset-chip active" data-preset="unico" onclick="aplicarPresetRapido('unico', this)">Solo esa fecha</button>
+                <button type="button" class="preset-chip" data-preset="hoy" onclick="aplicarPresetRapido('hoy', this)">Hoy</button>
+                <button type="button" class="preset-chip" data-preset="manana" onclick="aplicarPresetRapido('manana', this)">Mañana</button>
+                <button type="button" class="preset-chip" data-preset="lmv" onclick="aplicarPresetRapido('lmv', this)">Lun · Mié · Vie</button>
+                <button type="button" class="preset-chip" data-preset="mjs" onclick="aplicarPresetRapido('mjs', this)">Mar · Jue · Sáb</button>
+                <button type="button" class="preset-chip" data-preset="lv" onclick="aplicarPresetRapido('lv', this)">Lun a Vie</button>
+            </div>
+            <div class="chip-group" title="Marca los días de la semana a programar a partir de la fecha base">
+                <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-right: 2px;">Días:</span>
+                <button type="button" class="day-chip" data-dow="1" onclick="toggleDiaRapido(1, this)">L</button>
+                <button type="button" class="day-chip" data-dow="2" onclick="toggleDiaRapido(2, this)">M</button>
+                <button type="button" class="day-chip" data-dow="3" onclick="toggleDiaRapido(3, this)">X</button>
+                <button type="button" class="day-chip" data-dow="4" onclick="toggleDiaRapido(4, this)">J</button>
+                <button type="button" class="day-chip" data-dow="5" onclick="toggleDiaRapido(5, this)">V</button>
+                <button type="button" class="day-chip" data-dow="6" onclick="toggleDiaRapido(6, this)">S</button>
+                <button type="button" class="day-chip" data-dow="0" onclick="toggleDiaRapido(0, this)">D</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Calendario Interactivo -->
+<div class="glass-card" style="margin-bottom: 24px; padding: 20px 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+        <div>
+            <h4 style="margin: 0; color: var(--text-main); font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-calendar-days" style="color: #1d4ed8;"></i>
+                Calendario Interactivo de Turnos
+            </h4>
+            <p style="margin: 3px 0 0 0; font-size: 12px; color: var(--text-muted);">
+                <strong>Clic en cualquier día</strong> para programar ahí · <strong>Arrastra</strong> una ruta pendiente para moverla de fecha · <strong>Clic en una ruta</strong> para ver detalles, clonar o cancelar.
+            </p>
+        </div>
+        <div class="chip-group">
+            <button type="button" class="filter-pill active" data-estado="todos" onclick="filtrarPorEstado('todos', this)">Todas ({{ jornadas|length }})</button>
+            <button type="button" class="filter-pill" data-estado="pendiente" onclick="filtrarPorEstado('pendiente', this)">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-right:4px;"></span>Pendientes ({{ total_pendientes }})
+            </button>
+            <button type="button" class="filter-pill" data-estado="en_curso" onclick="filtrarPorEstado('en_curso', this)">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563eb;margin-right:4px;"></span>En Curso ({{ total_en_curso }})
+            </button>
+            <button type="button" class="filter-pill" data-estado="finalizada" onclick="filtrarPorEstado('finalizada', this)">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:4px;"></span>Finalizadas ({{ total_finalizadas }})
             </button>
         </div>
     </div>
-</div>
-
-<!-- Interactive FullCalendar -->
-<div class="glass-card" style="margin-bottom: 28px; padding: 24px;">
     <div id='calendar'></div>
 </div>
 
-<!-- Table Card -->
+<!-- Tabla de Jornadas -->
 <div class="glass-card" style="padding: 0; overflow: hidden;">
-    <div style="padding: 18px 24px; border-bottom: 1px solid var(--card-border);">
+    <div style="padding: 16px 24px; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <h4 style="margin: 0; color: var(--text-main); font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-list-check" style="color: var(--accent-blue);"></i>
-            Listado Completo de Jornadas Programadas
+            Listado de Jornadas Programadas
         </h4>
+        <div class="table-search-bar">
+            <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 12px;"></i>
+            <input type="text" id="searchJornadasInput" placeholder="Buscar por placa, ruta, chofer o fecha...">
+        </div>
     </div>
     <div class="table-responsive">
         <table class="modern-table" id="jornadasTable">
             <thead>
                 <tr>
                     <th>Fecha Asignada</th>
-                    <th>Vehículo / Camión</th>
+                    <th>Unidad</th>
                     <th>Ruta de Recolección</th>
-                    <th>Conductor a Cargo</th>
-                    <th>Estado de Operación</th>
-                    <th style="text-align: center;">Acción</th>
+                    <th>Conductor</th>
+                    <th>Estado</th>
+                    <th style="text-align: center;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for j in jornadas %}
-                <tr>
+                <tr data-estado="{{ j.estado }}" data-jornada-id="{{ j.id }}">
                     <td>
-                        <span style="font-weight: 700; color: var(--text-main); font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                        <span class="jornada-fecha-cell" style="font-weight: 700; color: var(--text-main); font-size: 13px; display: flex; align-items: center; gap: 6px;">
                             <i class="fa-regular fa-calendar" style="color: var(--text-muted);"></i>
                             {{ j.fecha|date:"d/m/Y" }}
                         </span>
@@ -127,9 +351,10 @@
                         </span>
                     </td>
                     <td>
-                        <span style="font-weight: 700; color: var(--accent-green); font-size: 14px;">
+                        <span style="font-weight: 700; color: var(--accent-green); font-size: 14px; display: block;">
                             {{ j.ruta.nombre }}
                         </span>
+                        <span style="font-size: 11.5px; color: var(--text-muted);">{{ j.ruta.zona|default:"Municipio Anaco" }}</span>
                     </td>
                     <td>
                         <div style="display: flex; align-items: center; gap: 8px;">
@@ -157,16 +382,30 @@
                         {% endif %}
                     </td>
                     <td style="text-align: center;">
-                        <button onclick="abrirModalEliminarJornada({{ j.id }}, '{{ j.ruta.nombre|escapejs }}')" 
-                                class="btn-action-icon" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;" title="Eliminar Jornada">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
+                        <div style="display: inline-flex; gap: 6px; align-items: center;">
+                            <button type="button"
+                                onclick="abrirModalAsignar({ fecha: '{{ hoy|date:'Y-m-d' }}', rutaId: '{{ j.ruta_id }}', vehiculoId: '{{ j.vehiculo_id }}', choferId: '{{ j.chofer_id }}' })"
+                                class="btn-action-icon" style="background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8;" title="Clonar esta asignación para otra fecha">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                            {% if j.estado == 'en_curso' %}
+                            <a href="{% url 'dashboard_mapa' %}" class="btn-action-icon" style="background: #f0fdf4; border-color: #bbf7d0; color: #15803d;" title="Monitorear en mapa en vivo">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                            </a>
+                            {% else %}
+                            <button type="button"
+                                onclick="abrirModalEliminarJornada({{ j.id }}, '{{ j.ruta.nombre|escapejs }}')"
+                                class="btn-action-icon" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;" title="Cancelar / Eliminar Jornada">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr class="empty-row">
                     <td colspan="6" style="padding: 40px; text-align: center; color: var(--text-muted);">
-                        No hay jornadas de trabajo registradas aún en el sistema.
+                        No hay jornadas programadas aún. Usa el Despacho Rápido arriba o haz clic en cualquier día del calendario.
                     </td>
                 </tr>
                 {% endfor %}
@@ -174,179 +413,441 @@
         </table>
     </div>
 </div>
+
+<div id="calToast" class="cal-toast"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        setupTableSearch('searchJornadasInput', 'jornadasTable');
+    const HOY_ISO = "{{ hoy|date:'Y-m-d' }}";
+    const MANANA_ISO = "{{ manana|date:'Y-m-d' }}";
+    const REPROGRAMAR_URL_TPL = "{% url 'jornada_reprogramar' 0 %}";
+    const MAPA_URL = "{% url 'dashboard_mapa' %}";
 
-        var calendarEl = document.getElementById('calendar');
-        var calendar = new FullCalendar.Calendar(calendarEl, {
+    const ALL_EVENTS = [
+        {% for j in jornadas %}
+        {
+            id: '{{ j.id }}',
+            title: '{{ j.vehiculo.placa|escapejs }} · {{ j.ruta.nombre|escapejs }}',
+            start: '{{ j.fecha|date:"Y-m-d" }}',
+            allDay: true,
+            editable: {% if j.estado == "pendiente" %}true{% else %}false{% endif %},
+            backgroundColor: '{% if j.estado == "finalizada" %}#16a34a{% elif j.estado == "en_curso" %}#2563eb{% else %}#d97706{% endif %}',
+            borderColor: 'transparent',
+            extendedProps: {
+                jornadaId: {{ j.id }},
+                estado: '{{ j.estado }}',
+                estadoLabel: '{{ j.get_estado_display|escapejs }}',
+                placa: '{{ j.vehiculo.placa|escapejs }}',
+                vehiculoId: '{{ j.vehiculo_id }}',
+                rutaId: '{{ j.ruta_id }}',
+                rutaNombre: '{{ j.ruta.nombre|escapejs }}',
+                rutaZona: '{{ j.ruta.zona|default:"Municipio Anaco"|escapejs }}',
+                choferId: '{{ j.chofer_id }}',
+                choferNombre: '{{ j.chofer.usuario.get_full_name|default:j.chofer.usuario.username|escapejs }}',
+                fechaIso: '{{ j.fecha|date:"Y-m-d" }}'
+            }
+        },
+        {% endfor %}
+    ];
+
+    let calendarInstance = null;
+    let estadoFiltroActual = 'todos';
+    let quickSelectedDows = new Set();
+
+    function getCsrfToken() {
+        const match = document.cookie.match(/csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function showCalToast(msg, isError = false) {
+        const el = document.getElementById('calToast');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = isError ? 'cal-toast error show' : 'cal-toast show';
+        clearTimeout(el._timer);
+        el._timer = setTimeout(() => { el.className = 'cal-toast'; }, 3500);
+    }
+
+    function formatIsoToEs(iso) {
+        if (!iso || iso.length < 10) return iso;
+        const [y, m, d] = iso.slice(0, 10).split('-');
+        return `${d}/${m}/${y}`;
+    }
+
+    function parseIsoLocal(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    function toIsoLocal(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    // Calcula fechas de los próximos 7 días (a partir de fechaBase) que coincidan con los días seleccionados
+    function calcularFechasDesdeDows(fechaBaseIso, dowsSet) {
+        if (!dowsSet.size) return [fechaBaseIso];
+        const base = parseIsoLocal(fechaBaseIso);
+        const result = [];
+        for (let offset = 0; offset < 7; offset++) {
+            const dt = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
+            if (dowsSet.has(dt.getDay())) {
+                result.push(toIsoLocal(dt));
+            }
+        }
+        return result.length ? result : [fechaBaseIso];
+    }
+
+    function actualizarResumenRapido() {
+        const fechaBase = document.getElementById('quickFecha').value || HOY_ISO;
+        const hidden = document.getElementById('quickFechasMultiples');
+        const badge = document.getElementById('quickMultiSummary');
+
+        const fechas = calcularFechasDesdeDows(fechaBase, quickSelectedDows);
+        hidden.value = quickSelectedDows.size ? fechas.join(',') : '';
+
+        if (fechas.length === 1) {
+            badge.textContent = `1 salida a programar (${formatIsoToEs(fechas[0])})`;
+        } else {
+            badge.textContent = `${fechas.length} salidas a programar (${fechas.map(formatIsoToEs).join(' · ')})`;
+        }
+    }
+
+    function marcarPresetActivo(presetName) {
+        document.querySelectorAll('.preset-chip').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.preset === presetName);
+        });
+    }
+
+    function sincronizarBotonesDia() {
+        document.querySelectorAll('.day-chip').forEach(btn => {
+            const dow = Number(btn.dataset.dow);
+            btn.classList.toggle('active', quickSelectedDows.has(dow));
+        });
+    }
+
+    function aplicarPresetRapido(preset, btn) {
+        const fechaInput = document.getElementById('quickFecha');
+        quickSelectedDows.clear();
+
+        if (preset === 'hoy') {
+            fechaInput.value = HOY_ISO;
+        } else if (preset === 'manana') {
+            fechaInput.value = MANANA_ISO;
+        } else if (preset === 'lmv') {
+            [1, 3, 5].forEach(d => quickSelectedDows.add(d));
+        } else if (preset === 'mjs') {
+            [2, 4, 6].forEach(d => quickSelectedDows.add(d));
+        } else if (preset === 'lv') {
+            [1, 2, 3, 4, 5].forEach(d => quickSelectedDows.add(d));
+        }
+
+        marcarPresetActivo(preset);
+        sincronizarBotonesDia();
+        actualizarResumenRapido();
+    }
+
+    function toggleDiaRapido(dow, btn) {
+        if (quickSelectedDows.has(dow)) {
+            quickSelectedDows.delete(dow);
+        } else {
+            quickSelectedDows.add(dow);
+        }
+        marcarPresetActivo(quickSelectedDows.size ? '' : 'unico');
+        sincronizarBotonesDia();
+        actualizarResumenRapido();
+    }
+
+    function onQuickFechaChange() {
+        actualizarResumenRapido();
+    }
+
+    function filtrarPorEstado(estado, btn) {
+        estadoFiltroActual = estado;
+        document.querySelectorAll('.filter-pill').forEach(b => b.classList.toggle('active', b === btn));
+
+        // Filtrar tabla
+        document.querySelectorAll('#jornadasTable tbody tr[data-estado]').forEach(row => {
+            row.style.display = (estado === 'todos' || row.dataset.estado === estado) ? '' : 'none';
+        });
+
+        // Filtrar eventos del calendario
+        if (calendarInstance) {
+            calendarInstance.removeAllEvents();
+            const visibles = estado === 'todos'
+                ? ALL_EVENTS
+                : ALL_EVENTS.filter(ev => ev.extendedProps.estado === estado);
+            calendarInstance.addEventSource(visibles);
+        }
+    }
+
+    async function moverJornadaPorDrag(info) {
+        const jornadaId = info.event.extendedProps.jornadaId;
+        const nuevaFecha = info.event.startStr.slice(0, 10);
+        const url = REPROGRAMAR_URL_TPL.replace('/0/', `/${jornadaId}/`);
+
+        try {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ fecha: nuevaFecha })
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok || !data.ok) {
+                info.revert();
+                showCalToast(data.error || 'No se pudo mover la jornada.', true);
+                return;
+            }
+            info.event.setExtendedProp('fechaIso', nuevaFecha);
+            const evRef = ALL_EVENTS.find(e => e.extendedProps.jornadaId === jornadaId);
+            if (evRef) {
+                evRef.start = nuevaFecha;
+                evRef.extendedProps.fechaIso = nuevaFecha;
+            }
+            const row = document.querySelector(`#jornadasTable tbody tr[data-jornada-id="${jornadaId}"] .jornada-fecha-cell`);
+            if (row) {
+                row.innerHTML = `<i class="fa-regular fa-calendar" style="color: var(--text-muted);"></i> ${formatIsoToEs(nuevaFecha)}`;
+            }
+            showCalToast(data.mensaje || `Jornada movida al ${formatIsoToEs(nuevaFecha)}.`);
+        } catch (err) {
+            info.revert();
+            showCalToast('Error de conexión al reprogramar la jornada.', true);
+        }
+    }
+
+    function abrirDetalleEvento(props) {
+        const esPendiente = props.estado === 'pendiente';
+        const esEnCurso = props.estado === 'en_curso';
+        const badgeColor = props.estado === 'finalizada' ? '#15803d' : (esEnCurso ? '#1d4ed8' : '#b45309');
+        const badgeBg = props.estado === 'finalizada' ? '#f0fdf4' : (esEnCurso ? '#eff6ff' : '#fffbeb');
+        const reprogUrl = REPROGRAMAR_URL_TPL.replace('/0/', `/${props.jornadaId}/`);
+
+        const content = `
+            <div style="text-align: left;">
+                <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <span style="background:${badgeBg}; color:${badgeColor}; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800;">
+                        ${escapeHtml(props.estadoLabel)}
+                    </span>
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-secondary);">
+                        <i class="fa-regular fa-calendar"></i> ${formatIsoToEs(props.fechaIso)}
+                    </span>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid var(--card-border); border-radius: 10px; padding: 14px; margin-bottom: 16px; line-height: 1.7; font-size: 13.5px;">
+                    <div><strong>Ruta:</strong> <span style="color:#15803d; font-weight:700;">${escapeHtml(props.rutaNombre)}</span> (${escapeHtml(props.rutaZona)})</div>
+                    <div><strong>Unidad:</strong> <span style="font-family: monospace; font-weight: 800; color: #1d4ed8;">${escapeHtml(props.placa)}</span></div>
+                    <div><strong>Conductor:</strong> ${escapeHtml(props.choferNombre)}</div>
+                </div>
+
+                ${esPendiente ? `
+                <form action="${reprogUrl}" method="post" style="display: flex; gap: 8px; align-items: end; margin-bottom: 14px; padding: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next_url" value="{% url 'dashboard_itinerario' %}">
+                    <div style="flex: 1;">
+                        <label style="display:block; font-size: 11.5px; font-weight: 700; color: #92400e; margin-bottom: 4px;">Reprogramar a otra fecha:</label>
+                        <input type="date" name="fecha" class="form-input" value="${props.fechaIso}" required>
+                    </div>
+                    <button type="submit" class="btn-modern" style="background: #d97706; color: white; height: 40px; padding: 0 14px; font-size: 12.5px;">
+                        <i class="fa-solid fa-calendar-check"></i> Mover
+                    </button>
+                </form>
+                ` : ''}
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    ${esEnCurso || esPendiente ? `
+                    <a href="${MAPA_URL}" class="btn-modern btn-primary-green" style="flex: 1; text-align: center; justify-content: center; text-decoration: none;">
+                        <i class="fa-solid fa-map-location-dot"></i> Ver en Mapa
+                    </a>
+                    ` : ''}
+                    <button type="button"
+                        onclick="closeModal(); setTimeout(() => abrirModalAsignar({ fecha: '${MANANA_ISO}', rutaId: '${props.rutaId}', vehiculoId: '${props.vehiculoId}', choferId: '${props.choferId}' }), 120);"
+                        class="btn-modern" style="flex: 1; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
+                        <i class="fa-regular fa-copy"></i> Clonar
+                    </button>
+                    ${!esEnCurso ? `
+                    <button type="button"
+                        onclick="cancelarDesdeDetalle(${props.jornadaId})"
+                        class="btn-modern" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;">
+                        <i class="fa-solid fa-trash-can"></i> Cancelar
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        openModal('<i class="fa-solid fa-clipboard-list" style="color: #1d4ed8;"></i> Detalle de Jornada', content);
+    }
+
+    function cancelarDesdeDetalle(jornadaId) {
+        const ev = ALL_EVENTS.find(e => e.extendedProps.jornadaId === jornadaId);
+        const nombre = ev ? ev.extendedProps.rutaNombre : `Jornada #${jornadaId}`;
+        closeModal();
+        setTimeout(() => abrirModalEliminarJornada(jornadaId, nombre), 120);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        setupTableSearch('searchJornadasInput', 'jornadasTable');
+        actualizarResumenRapido();
+
+        const calendarEl = document.getElementById('calendar');
+        calendarInstance = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'es',
+            firstDay: 1,
+            height: 'auto',
+            editable: true,
+            eventStartEditable: true,
+            eventDurationEditable: false,
+            dayMaxEvents: 4,
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
-                right: 'dayGridMonth,timeGridWeek'
+                right: 'dayGridMonth,dayGridWeek,listWeek'
             },
             buttonText: {
                 today: 'Hoy',
                 month: 'Mes',
                 week: 'Semana',
-                day: 'Día',
-                list: 'Lista'
+                list: 'Agenda'
             },
-            events: [
-                {% for j in jornadas %}
-                {
-                    title: '{{ j.vehiculo.placa }} - {{ j.ruta.nombre }}',
-                    start: '{{ j.fecha|date:"Y-m-d" }}',
-                    backgroundColor: '{% if j.estado == "finalizada" %}rgba(16, 185, 129, 0.85){% elif j.estado == "en_curso" %}rgba(59, 130, 246, 0.85){% else %}rgba(245, 158, 11, 0.85){% endif %}',
-                    borderColor: 'transparent'
-                },
-                {% endfor %}
-            ]
+            dayCellDidMount: function (arg) {
+                const top = arg.el.querySelector('.fc-daygrid-day-top');
+                if (top && !top.querySelector('.fc-day-add-hint')) {
+                    const hint = document.createElement('span');
+                    hint.className = 'fc-day-add-hint';
+                    hint.textContent = '+ Asignar';
+                    top.prepend(hint);
+                }
+            },
+            dateClick: function (info) {
+                abrirModalAsignar({ fecha: info.dateStr });
+            },
+            eventClick: function (info) {
+                info.jsEvent.preventDefault();
+                abrirDetalleEvento(info.event.extendedProps);
+            },
+            eventDrop: function (info) {
+                moverJornadaPorDrag(info);
+            },
+            events: ALL_EVENTS
         });
-        calendar.render();
+        calendarInstance.render();
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('asignar') === '1') {
-            setTimeout(abrirModalAsignar, 250);
+            setTimeout(() => abrirModalAsignar({ fecha: HOY_ISO }), 200);
         }
     });
 
-    function abrirModalAsignar() {
-        var content = `
+    function abrirModalAsignar(opts = {}) {
+        const fechaSel = opts.fecha || HOY_ISO;
+        const content = `
             <form action="{% url 'jornada_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <input type="hidden" name="next_url" value="{% url 'dashboard_itinerario' %}">
-                
-                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;">
-                    <i class="fa-solid fa-satellite-dish" style="color: #2563eb; font-size: 18px; margin-top: 2px;"></i>
-                    <div style="font-size: 12.5px; color: #1e40af; line-height: 1.4;">
-                        <strong>Seguimiento satelital por teléfono móvil:</strong><br>
-                        Puedes vincular cualquier camión con cualquier chofer. Quien transmite las coordenadas GPS en tiempo real es el <strong>teléfono celular del conductor</strong> asignado al activar su ruta en la app móvil.
-                    </div>
+
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px; color: #166534; font-weight: 600;">
+                    <i class="fa-solid fa-calendar-day" style="margin-right: 6px;"></i>
+                    Programando salida para el <strong>${formatIsoToEs(fechaSel)}</strong>
                 </div>
 
-                <div style="margin-bottom: 14px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-solid fa-route" style="color: var(--accent-green); margin-right: 5px;"></i> 1. Ruta de Recolección:</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Sector a cubrir</span>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <i class="fa-solid fa-route" style="color: var(--accent-green); margin-right: 5px;"></i> 1. Ruta de Recolección
                     </label>
-                    <select name="ruta" id="modalSelectRuta" class="form-select" onchange="actualizarPreviewModal()" required>
+                    <select name="ruta" id="modalSelectRuta" class="form-select" required>
                         {% for r in rutas %}
-                        <option value="{{ r.id }}" data-nombre="{{ r.nombre }}" data-km="{{ r.distancia_estimada_km }}">
-                            {{ r.nombre }} [{{ r.zona|default:"Sector General" }}] • {{ r.distancia_estimada_km }} Km
-                        </option>
+                        <option value="{{ r.id }}">{{ r.nombre }} [{{ r.zona|default:"Sector General" }}] • {{ r.distancia_estimada_km }} Km</option>
                         {% empty %}
                         <option value="">No hay rutas registradas</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div style="margin-bottom: 14px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-solid fa-truck" style="color: #2563eb; margin-right: 5px;"></i> 2. Vehículo / Camión Asignado:</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Cualquier unidad disponible</span>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <i class="fa-solid fa-truck" style="color: #2563eb; margin-right: 5px;"></i> 2. Unidad / Camión
                     </label>
-                    <select name="vehiculo" id="modalSelectVehiculo" class="form-select" onchange="actualizarPreviewModal()" required>
+                    <select name="vehiculo" id="modalSelectVehiculo" class="form-select" required>
                         {% for v in vehiculos %}
-                        <option value="{{ v.id }}" data-placa="{{ v.placa }}" data-marca="{{ v.marca }} {{ v.modelo }}">
-                            [Placa: {{ v.placa }}] • {{ v.marca }} {{ v.modelo }} (Capacidad: {{ v.capacidad_toneladas }} Ton)
-                        </option>
+                        <option value="{{ v.id }}">[{{ v.placa }}] {{ v.marca }} {{ v.modelo }}{% if v.estado != 'activo' %} [{{ v.get_estado_display }}]{% endif %}</option>
                         {% empty %}
                         <option value="">No hay vehículos registrados</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div style="margin-bottom: 14px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-solid fa-mobile-screen-button" style="color: #16a34a; margin-right: 5px;"></i> 3. Chofer a Cargo (Teléfono GPS a rastrear):</span>
-                        <span style="font-size: 11px; color: var(--accent-green); font-weight: 700;">Emisor de señal GPS</span>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <i class="fa-solid fa-mobile-screen-button" style="color: #16a34a; margin-right: 5px;"></i> 3. Conductor a Cargo
                     </label>
-                    <select name="chofer" id="modalSelectChofer" class="form-select" onchange="actualizarPreviewModal()" required>
+                    <select name="chofer" id="modalSelectChofer" class="form-select" required>
                         {% for c in choferes %}
-                        <option value="{{ c.id }}" data-nombre="{{ c.usuario.get_full_name|default:c.usuario.username }}">
-                            👤 {{ c.usuario.get_full_name|default:c.usuario.username }} [Lic: {{ c.licencia }}] {% if c.telefono %}• Tel: {{ c.telefono }}{% endif %}
-                        </option>
+                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }} [Lic: {{ c.licencia }}]</option>
                         {% empty %}
                         <option value="">No hay choferes disponibles</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div style="margin-bottom: 16px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-regular fa-calendar-days" style="color: var(--text-muted); margin-right: 5px;"></i> 4. Fecha de Ejecución:</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Hoy por defecto</span>
+                <div style="margin-bottom: 18px;">
+                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <i class="fa-regular fa-calendar-days" style="color: var(--text-muted); margin-right: 5px;"></i> 4. Fecha de Ejecución
                     </label>
-                    <input type="date" name="fecha" id="modalInputFecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" required>
+                    <input type="date" name="fecha" id="modalInputFecha" class="form-input" value="${fechaSel}" required>
                 </div>
 
-                <div id="modalPreviewBox" style="background: #f8fafc; border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 14px; margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-clipboard-check" style="color: var(--accent-green); margin-right: 4px;"></i> Resumen de Asignación
-                    </div>
-                    <div id="modalPreviewTexto" style="font-size: 12.5px; color: #0f172a; line-height: 1.5;">
-                        Cargando resumen...
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px; font-weight: 700;">
-                    <i class="fa-solid fa-check-double"></i> Asignar y Confirmar Recorrido
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
+                    <i class="fa-solid fa-check-double"></i> Confirmar Asignación
                 </button>
             </form>
         `;
-        openModal('<i class="fa-solid fa-calendar-plus" style="color: var(--accent-green);"></i> Asignar Recorrido de Recolección', content);
-        setTimeout(actualizarPreviewModal, 100);
-    }
+        openModal('<i class="fa-solid fa-calendar-plus" style="color: var(--accent-green);"></i> Asignar Ruta en Calendario', content);
 
-    function actualizarPreviewModal() {
-        const selRuta = document.getElementById('modalSelectRuta');
-        const selVehiculo = document.getElementById('modalSelectVehiculo');
-        const selChofer = document.getElementById('modalSelectChofer');
-        const preview = document.getElementById('modalPreviewTexto');
-        if (!preview) return;
-
-        const rutaOpt = selRuta ? selRuta.options[selRuta.selectedIndex] : null;
-        const vehOpt = selVehiculo ? selVehiculo.options[selVehiculo.selectedIndex] : null;
-        const choferOpt = selChofer ? selChofer.options[selChofer.selectedIndex] : null;
-
-        const rutaNombre = rutaOpt ? (rutaOpt.dataset.nombre || rutaOpt.text.trim()) : 'Ruta seleccionada';
-        const vehPlaca = vehOpt ? (vehOpt.dataset.placa || vehOpt.text.trim()) : 'Vehículo seleccionado';
-        const choferNombre = choferOpt ? (choferOpt.dataset.nombre || choferOpt.text.trim()) : 'Chofer seleccionado';
-
-        preview.innerHTML = `
-            El camión <strong style="color: #1d4ed8;">[${escapeHtml(vehPlaca)}]</strong> recorrerá la <strong style="color: #15803d;">${escapeHtml(rutaNombre)}</strong>.<br>
-            📱 <span style="color: #0369a1;">Se rastreará el móvil de:</span> <strong>${escapeHtml(choferNombre)}</strong>.
-        `;
+        setTimeout(() => {
+            if (opts.rutaId) {
+                const el = document.getElementById('modalSelectRuta');
+                if (el) el.value = String(opts.rutaId);
+            }
+            if (opts.vehiculoId) {
+                const el = document.getElementById('modalSelectVehiculo');
+                if (el) el.value = String(opts.vehiculoId);
+            }
+            if (opts.choferId) {
+                const el = document.getElementById('modalSelectChofer');
+                if (el) el.value = String(opts.choferId);
+            }
+        }, 40);
     }
 
     function abrirModalEliminarJornada(id, rutaNombre) {
-        var actionUrl = "{% url 'jornada_eliminar' 0 %}".replace('0', id);
-        var content = `
+        const actionUrl = "{% url 'jornada_eliminar' 0 %}".replace('0', id);
+        const content = `
             <form action="${actionUrl}" method="post" style="text-align: center;">
                 {% csrf_token %}
                 <input type="hidden" name="next_url" value="{% url 'dashboard_itinerario' %}">
-                <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; color: var(--accent-red-light); font-size: 26px;">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px auto; color: #dc2626; font-size: 24px;">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
-                <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 800;">¿Cancelar esta jornada?</h4>
-                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5;">
-                    Estás a punto de desprogramar la jornada para la ruta <strong style="color: #dc2626;">${escapeHtml(rutaNombre)}</strong>.
+                <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 17px; font-weight: 800;">¿Cancelar esta jornada?</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">
+                    Se eliminará la programación de <strong style="color: #dc2626;">${escapeHtml(rutaNombre)}</strong>.
                 </p>
-                <div style="display: flex; gap: 12px;">
-                    <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #e2e8f0; color: #334155;">Cancelar</button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #e2e8f0; color: #334155;">Volver</button>
                     <button type="submit" class="btn-modern" style="flex: 1; background: #dc2626; color: white;">
-                        <i class="fa-solid fa-trash-can"></i> Sí, Eliminar
+                        <i class="fa-solid fa-trash-can"></i> Sí, Cancelar
                     </button>
                 </div>
             </form>
         `;
-        openModal('<i class="fa-solid fa-trash-can" style="color: var(--accent-red-light);"></i> Eliminar Jornada', content);
+        openModal('<i class="fa-solid fa-trash-can" style="color: #dc2626;"></i> Cancelar Jornada', content);
     }
 </script>
 {% endblock %}
