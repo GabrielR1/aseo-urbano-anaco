@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
@@ -16,6 +19,8 @@ class RouteActiveScreen extends StatefulWidget {
   final String? rutaNombre;
   final String? rutaZona;
   final String? rutaDescripcion;
+  final List<List<double>> rutaWaypoints;
+  final List<List<double>> trayectoriaInicial;
   final String? vehiculoPlaca;
   final String? vehiculoModelo;
   final double distanciaInicialKm;
@@ -28,6 +33,8 @@ class RouteActiveScreen extends StatefulWidget {
     this.rutaNombre,
     this.rutaZona,
     this.rutaDescripcion,
+    this.rutaWaypoints = const [],
+    this.trayectoriaInicial = const [],
     this.vehiculoPlaca,
     this.vehiculoModelo,
     this.distanciaInicialKm = 0.0,
@@ -39,7 +46,10 @@ class RouteActiveScreen extends StatefulWidget {
 }
 
 class _RouteActiveScreenState extends State<RouteActiveScreen> {
+  static const LatLng _anacoCenter = LatLng(9.4410, -64.4600);
+
   final ApiService _apiService = ApiService();
+  final MapController _mapController = MapController();
   StreamSubscription<Position>? _positionSub;
   Timer? _elapsedTimer;
 
@@ -48,16 +58,21 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   DateTime? _lastSentAt;
   bool _isTracking = true;
   bool _sending = false;
+  bool _followUser = true;
   int _secondsElapsed = 0;
   double _totalDistanceKm = 0.0;
   String? _gpsWarning;
   bool _canOpenSettings = false;
   final List<Map<String, dynamic>> _offlinePointsQueue = [];
+  late final List<LatLng> _routeWaypoints;
+  late final List<LatLng> _traveledTrail;
 
   @override
   void initState() {
     super.initState();
     _totalDistanceKm = widget.distanciaInicialKm;
+    _routeWaypoints = widget.rutaWaypoints.map((p) => LatLng(p[0], p[1])).toList();
+    _traveledTrail = widget.trayectoriaInicial.map((p) => LatLng(p[0], p[1])).toList();
     _startElapsedTimer();
     _inicializar();
   }
@@ -129,7 +144,6 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
 
       await _positionSub?.cancel();
 
-      // Captura inicial inmediata para no esperar al primer movimiento.
       try {
         final initial = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
@@ -144,7 +158,6 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
 
       if (!mounted || !_isTracking) return;
 
-      // Stream continuo en vivo: actualiza velocímetro y km con suavidad y menos batería.
       _positionSub = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -190,11 +203,24 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
       deltaKm = movedMeters / 1000.0;
     }
 
+    final currentLatLng = LatLng(position.latitude, position.longitude);
     setState(() {
       _currentPosition = position;
       _totalDistanceKm += deltaKm;
       _gpsWarning = null;
+      if (_traveledTrail.isEmpty || movedMeters >= 5) {
+        _traveledTrail.add(currentLatLng);
+        if (_traveledTrail.length > 400) {
+          _traveledTrail.removeAt(0);
+        }
+      }
     });
+
+    if (_followUser) {
+      try {
+        _mapController.move(currentLatLng, _mapController.camera.zoom);
+      } catch (_) {}
+    }
 
     final now = DateTime.now();
     final elapsedSinceSend = _lastSentAt == null ? 999 : now.difference(_lastSentAt!).inSeconds;
@@ -257,6 +283,72 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     if (mounted) setState(() {});
   }
 
+  void _centrarEnMi() {
+    setState(() => _followUser = true);
+    if (_currentPosition != null) {
+      _mapController.move(LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 16.5);
+    } else if (_routeWaypoints.isNotEmpty) {
+      _mapController.move(_routeWaypoints.first, 15.0);
+    } else {
+      _mapController.move(_anacoCenter, 14.5);
+    }
+  }
+
+  void _verTodaLaRuta() {
+    setState(() => _followUser = false);
+    final puntos = <LatLng>[
+      ..._routeWaypoints,
+      ..._traveledTrail,
+      if (_currentPosition != null) LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+    ];
+    if (puntos.length >= 2) {
+      _mapController.fitCamera(
+        CameraFit.bounds(bounds: LatLngBounds.fromPoints(puntos), padding: const EdgeInsets.all(42)),
+      );
+    } else if (puntos.length == 1) {
+      _mapController.move(puntos.first, 15.5);
+    } else {
+      _mapController.move(_anacoCenter, 14.0);
+    }
+  }
+
+  Future<void> _abrirEnGoogleMaps() async {
+    Uri uri;
+    if (_routeWaypoints.isNotEmpty) {
+      final dest = _routeWaypoints.last;
+      final middle = _routeWaypoints.length > 2
+          ? _routeWaypoints.sublist(1, _routeWaypoints.length - 1).take(8)
+          : const Iterable<LatLng>.empty();
+      final params = <String, String>{
+        'api': '1',
+        'destination': '${dest.latitude},${dest.longitude}',
+        'travelmode': 'driving',
+      };
+      if (_currentPosition != null) {
+        params['origin'] = '${_currentPosition!.latitude},${_currentPosition!.longitude}';
+      } else if (_routeWaypoints.length > 1) {
+        params['origin'] = '${_routeWaypoints.first.latitude},${_routeWaypoints.first.longitude}';
+      }
+      if (middle.isNotEmpty) {
+        params['waypoints'] = middle.map((p) => '${p.latitude},${p.longitude}').join('|');
+      }
+      uri = Uri.https('www.google.com', '/maps/dir/', params);
+    } else {
+      final query = '${widget.rutaZona ?? widget.rutaNombre ?? 'Anaco'}, Anaco, Anzoátegui, Venezuela';
+      uri = Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': query});
+    }
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo abrir Google Maps en este dispositivo.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   String _formatElapsedTime(int totalSeconds) {
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
@@ -315,13 +407,20 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
       if (widget.vehiculoPlaca != null && widget.vehiculoPlaca!.isNotEmpty) widget.vehiculoPlaca!,
       if (widget.vehiculoModelo != null && widget.vehiculoModelo!.isNotEmpty) widget.vehiculoModelo!,
     ].join(' • ');
-    final detalleSectores = (widget.rutaDescripcion != null && widget.rutaDescripcion!.trim().isNotEmpty)
-        ? widget.rutaDescripcion!.trim()
-        : (widget.rutaZona ?? '').trim();
 
     final hasEstimado = widget.distanciaEstimadaKm > 0;
     final progreso = hasEstimado ? (_totalDistanceKm / widget.distanciaEstimadaKm).clamp(0.0, 1.0) : 0.0;
     final porcentaje = (progreso * 100).round();
+
+    final LatLng initialCenter = _currentPosition != null
+        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+        : (_routeWaypoints.isNotEmpty
+            ? _routeWaypoints.first
+            : (_traveledTrail.isNotEmpty ? _traveledTrail.last : _anacoCenter));
+
+    final tileUrl = isDark
+        ? 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+        : 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
     final Color statusColor;
     final String statusText;
@@ -355,7 +454,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
             children: [
               Text(
                 tituloRuta,
-                style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 overflow: TextOverflow.ellipsis,
               ),
               if (subtituloVehiculo.isNotEmpty)
@@ -376,43 +475,43 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(18.0),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Indicador único de estado GPS
+                // Barra compacta de estado GPS
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(
                     color: colors.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.55), width: 1.4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.55), width: 1.3),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 11,
-                        height: 11,
+                        width: 10,
+                        height: 10,
                         decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           statusText,
-                          style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700, fontSize: 14),
+                          style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700, fontSize: 13.5),
                         ),
                       ),
                       if (!_isTracking)
                         TextButton(
                           onPressed: _canOpenSettings ? Geolocator.openAppSettings : _startTracking,
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: Text(
                             _canOpenSettings ? 'Ajustes' : 'Reintentar',
-                            style: TextStyle(color: colors.primary, fontWeight: FontWeight.w800),
+                            style: TextStyle(color: colors.primary, fontWeight: FontWeight.w800, fontSize: 13),
                           ),
                         ),
                     ],
@@ -420,93 +519,220 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                 ),
 
                 if (_gpsWarning != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0x22F59E0B) : const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFFD97706)),
                     ),
                     child: Text(
                       _gpsWarning!,
                       style: TextStyle(
                         color: isDark ? const Color(0xFFFCD34D) : const Color(0xFF92400E),
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-                // Panel de telemetría con alto contraste + barra de progreso
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.5 : 0.9)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-                        blurRadius: 16,
-                        offset: const Offset(0, 5),
+                // Mapa en vivo con ruta trazada (azul), recorrido completado (verde) y camión actual
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colors.outline.withValues(alpha: 0.7)),
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        speed,
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontSize: 64,
-                          fontWeight: FontWeight.w900,
-                          height: 1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Km/h',
-                        style: TextStyle(color: muted, fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 20),
-                      Divider(color: theme.dividerColor, height: 1),
-                      const SizedBox(height: 16),
-                      Row(
+                      child: Stack(
                         children: [
-                          Expanded(
-                            child: _buildMetric(context, '${_totalDistanceKm.toStringAsFixed(1)} km', 'Recorridos'),
+                          FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: initialCenter,
+                              initialZoom: 15.0,
+                              onPositionChanged: (_, hasGesture) {
+                                if (hasGesture && _followUser) {
+                                  setState(() => _followUser = false);
+                                }
+                              },
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: tileUrl,
+                                userAgentPackageName: 'com.aseourbanoanaco.chofer',
+                              ),
+                              PolylineLayer(
+                                polylines: [
+                                  if (_routeWaypoints.length >= 2)
+                                    Polyline(
+                                      points: _routeWaypoints,
+                                      color: const Color(0xAA1D4ED8),
+                                      strokeWidth: 5.0,
+                                    ),
+                                  if (_traveledTrail.length >= 2)
+                                    Polyline(
+                                      points: _traveledTrail,
+                                      color: const Color(0xFF15803D),
+                                      strokeWidth: 5.5,
+                                    ),
+                                ],
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  // Puntos numerados de la ruta asignada
+                                  for (int i = 0; i < _routeWaypoints.length; i++)
+                                    Marker(
+                                      point: _routeWaypoints[i],
+                                      width: 26,
+                                      height: 26,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: i == 0
+                                              ? const Color(0xFF15803D)
+                                              : (i == _routeWaypoints.length - 1
+                                                  ? const Color(0xFFDC2626)
+                                                  : const Color(0xFF1D4ED8)),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2),
+                                          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)],
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  // Posición actual del chofer
+                                  if (_currentPosition != null)
+                                    Marker(
+                                      point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                                      width: 38,
+                                      height: 38,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 3),
+                                          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 8)],
+                                        ),
+                                        child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 19),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
-                          Container(width: 1, height: 34, color: theme.dividerColor),
-                          Expanded(
-                            child: _buildMetric(context, _formatElapsedTime(_secondsElapsed), 'Tiempo en ruta'),
+                          // Leyenda discreta arriba a la izquierda
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: colors.surface.withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: colors.outline.withValues(alpha: 0.6)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildLegendDot(const Color(0xFF1D4ED8), 'Ruta'),
+                                  const SizedBox(width: 10),
+                                  _buildLegendDot(const Color(0xFF15803D), 'Recorrido'),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Controles flotantes del mapa a la derecha
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: Column(
+                              children: [
+                                _buildMapButton(
+                                  context,
+                                  icon: Icons.my_location_rounded,
+                                  tooltip: 'Centrar en mi ubicación',
+                                  active: _followUser,
+                                  onTap: _centrarEnMi,
+                                ),
+                                const SizedBox(height: 8),
+                                _buildMapButton(
+                                  context,
+                                  icon: Icons.route_rounded,
+                                  tooltip: 'Ver ruta completa',
+                                  onTap: _verTodaLaRuta,
+                                ),
+                                const SizedBox(height: 8),
+                                _buildMapButton(
+                                  context,
+                                  icon: Icons.directions_rounded,
+                                  tooltip: 'Abrir en Google Maps',
+                                  highlight: true,
+                                  onTap: _abrirEnGoogleMaps,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // Panel compacto de telemetría + progreso
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.45 : 0.85)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: _buildMetric(context, '$speed km/h', 'Velocidad', accent: colors.primary)),
+                          Container(width: 1, height: 28, color: theme.dividerColor),
+                          Expanded(child: _buildMetric(context, '${_totalDistanceKm.toStringAsFixed(1)} km', 'Recorridos')),
+                          Container(width: 1, height: 28, color: theme.dividerColor),
+                          Expanded(child: _buildMetric(context, _formatElapsedTime(_secondsElapsed), 'Tiempo')),
+                        ],
+                      ),
                       if (hasEstimado) ...[
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 10),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               'Progreso estimado',
-                              style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: muted, fontSize: 11.5, fontWeight: FontWeight.w600),
                             ),
                             Text(
                               '${_totalDistanceKm.toStringAsFixed(1)} / ${widget.distanciaEstimadaKm.toStringAsFixed(1)} km ($porcentaje%)',
-                              style: TextStyle(color: colors.onSurface, fontSize: 12.5, fontWeight: FontWeight.w800),
+                              style: TextStyle(color: colors.onSurface, fontSize: 11.5, fontWeight: FontWeight.w800),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 5),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: LinearProgressIndicator(
                             value: progreso,
-                            minHeight: 8,
+                            minHeight: 7,
                             backgroundColor: colors.surfaceContainerHighest,
                             color: colors.primary,
                           ),
@@ -516,48 +742,21 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                   ),
                 ),
 
-                if (detalleSectores.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.4 : 0.85)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.map_outlined, size: 18, color: colors.secondary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            detalleSectores,
-                            style: TextStyle(color: colors.onSurface.withValues(alpha: 0.85), fontSize: 13, height: 1.35),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                const SizedBox(height: 10),
 
-                const Spacer(),
-
+                // Acciones rápidas en ruta
                 Row(
                   children: [
                     Expanded(
-                      flex: 3,
                       child: ElevatedButton.icon(
-                        icon: const Icon(Icons.warning_amber_rounded, size: 22),
-                        label: const Text('Novedad', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                        icon: const Icon(Icons.warning_amber_rounded, size: 21),
+                        label: const Text('Novedad', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800)),
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(0, 56),
+                          minimumSize: const Size(0, 52),
                           backgroundColor: const Color(0xFFDC2626),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
                         onPressed: () {
                           Navigator.push(
@@ -569,18 +768,17 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      flex: 3,
                       child: OutlinedButton.icon(
-                        icon: const Icon(Icons.local_gas_station_rounded, size: 21, color: Color(0xFFD97706)),
+                        icon: const Icon(Icons.local_gas_station_rounded, size: 20, color: Color(0xFFD97706)),
                         label: Text(
                           'Combustible',
-                          style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: colors.onSurface),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: colors.onSurface),
                         ),
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 56),
+                          minimumSize: const Size(0, 52),
                           side: BorderSide(color: colors.outline, width: 1.5),
                           backgroundColor: colors.surface,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
                         onPressed: () {
                           Navigator.push(
@@ -594,19 +792,19 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.flag_rounded, size: 22),
                   label: const Text(
                     'Finalizar ruta',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                    style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
                   ),
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 56),
+                    minimumSize: const Size(double.infinity, 54),
                     backgroundColor: colors.primary,
                     foregroundColor: colors.onPrimary,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: _confirmFinishJourney,
                 ),
@@ -618,14 +816,60 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     );
   }
 
-  Widget _buildMetric(BuildContext context, String value, String label) {
+  Widget _buildLegendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 5),
+        Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+      ],
+    );
+  }
+
+  Widget _buildMapButton(
+    BuildContext context, {
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    bool active = false,
+    bool highlight = false,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final bg = highlight
+        ? const Color(0xFF1D4ED8)
+        : (active ? colors.primary : colors.surface.withValues(alpha: 0.95));
+    final fg = (highlight || active) ? Colors.white : colors.onSurface;
+    return Material(
+      color: bg,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Tooltip(
+          message: tooltip,
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Icon(icon, color: fg, size: 22),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetric(BuildContext context, String value, String label, {Color? accent}) {
     final theme = Theme.of(context);
     final muted = theme.brightness == Brightness.dark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     return Column(
       children: [
-        Text(value, style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 20)),
-        const SizedBox(height: 3),
-        Text(label, style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(
+          value,
+          style: TextStyle(color: accent ?? theme.colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 16.5),
+        ),
+        const SizedBox(height: 1),
+        Text(label, style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w600)),
       ],
     );
   }

@@ -1,6 +1,39 @@
 {% extends 'dashboard/base.html' %}
+{% load static %}
 
 {% block page_title %}Rutas y Sectores de Recolección{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'dashboard/vendor/leaflet/leaflet.css' %}">
+<script src="{% static 'dashboard/vendor/leaflet/leaflet.js' %}"></script>
+<style>
+    .modal-box {
+        max-width: 620px;
+    }
+    #rutaEditorMap {
+        height: 250px;
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        margin-top: 6px;
+        z-index: 1;
+    }
+    .wp-pin {
+        background: #1d4ed8;
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 800;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- Header Bar with Quick Stats & Search -->
@@ -56,6 +89,11 @@
                             <div>
                                 <span style="font-weight: 700; color: #0f172a; font-size: 14px; display: block;">{{ r.nombre }}</span>
                                 <span style="font-size: 12px; color: var(--text-muted);">{{ r.descripcion|default:"Sin descripción complementaria"|truncatechars:50 }}</span>
+                                {% if r.coordenadas_waypoints %}
+                                <span style="display: inline-block; margin-top: 3px; font-size: 11px; color: #15803d; font-weight: 600;">
+                                    <i class="fa-solid fa-map-pin"></i> Trazado activo en mapa del chofer
+                                </span>
+                                {% endif %}
                             </div>
                         </div>
                     </td>
@@ -86,7 +124,7 @@
                                 <i class="fa-solid fa-truck-fast"></i> Asignar Recorrido
                             </button>
                             <button
-                                onclick="abrirModalEditarRuta({{ r.id }}, '{{ r.nombre|escapejs }}', '{{ r.zona|escapejs }}', '{{ r.distancia_estimada_km }}', '{{ r.descripcion|escapejs }}')"
+                                onclick="abrirModalEditarRuta({{ r.id }}, '{{ r.nombre|escapejs }}', '{{ r.zona|escapejs }}', '{{ r.distancia_estimada_km }}', '{{ r.descripcion|escapejs }}', '{{ r.coordenadas_waypoints|default:''|escapejs }}')"
                                 class="btn-action-icon"
                                 style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.35); color: #60a5fa;"
                                 title="Modificar Ruta">
@@ -127,58 +165,204 @@
         setupTableSearch('searchRutasInput', 'rutasTable');
     });
 
+    let rutaEditorMap = null;
+    let rutaEditorLine = null;
+    let rutaEditorMarkers = [];
+    let rutaEditorPoints = [];
+
+    function haversineKmEditor(p1, p2) {
+        const R = 6371;
+        const dLat = (p2[0] - p1[0]) * Math.PI / 180;
+        const dLon = (p2[1] - p1[1]) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(p1[0] * Math.PI / 180) * Math.cos(p2[0] * Math.PI / 180) *
+            Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function actualizarMapaEditor() {
+        const hidden = document.getElementById('rutaWaypointsInput');
+        const counter = document.getElementById('wpCountLabel');
+        if (hidden) {
+            hidden.value = rutaEditorPoints.length ? JSON.stringify(rutaEditorPoints) : '';
+        }
+        if (counter) {
+            counter.textContent = `${rutaEditorPoints.length} punto(s) marcados`;
+        }
+        if (!rutaEditorMap) return;
+
+        rutaEditorMarkers.forEach(m => rutaEditorMap.removeLayer(m));
+        rutaEditorMarkers = [];
+        rutaEditorPoints.forEach((pt, idx) => {
+            const bg = idx === 0 ? '#15803d' : (idx === rutaEditorPoints.length - 1 ? '#dc2626' : '#1d4ed8');
+            const icon = L.divIcon({
+                className: 'custom-wp-icon',
+                html: `<div class="wp-pin" style="background:${bg};">${idx + 1}</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+            rutaEditorMarkers.push(L.marker(pt, { icon }).addTo(rutaEditorMap));
+        });
+
+        if (rutaEditorLine) {
+            rutaEditorLine.setLatLngs(rutaEditorPoints);
+        } else {
+            rutaEditorLine = L.polyline(rutaEditorPoints, { color: '#1d4ed8', weight: 4, dashArray: '6 6' }).addTo(rutaEditorMap);
+        }
+    }
+
+    function deshacerPuntoRuta() {
+        if (rutaEditorPoints.length) {
+            rutaEditorPoints.pop();
+            actualizarMapaEditor();
+        }
+    }
+
+    function limpiarPuntosRuta() {
+        rutaEditorPoints = [];
+        actualizarMapaEditor();
+    }
+
+    function calcularDistanciaDesdeMapa() {
+        if (rutaEditorPoints.length < 2) return;
+        let total = 0;
+        for (let i = 1; i < rutaEditorPoints.length; i++) {
+            total += haversineKmEditor(rutaEditorPoints[i - 1], rutaEditorPoints[i]);
+        }
+        const distInput = document.getElementById('rutaDistanciaInput');
+        if (distInput) {
+            distInput.value = Math.max(0.5, total * 1.25).toFixed(2);
+        }
+    }
+
+    function iniciarMapaEditorRuta(rawWaypoints) {
+        rutaEditorPoints = [];
+        if (rawWaypoints) {
+            try {
+                const parsed = JSON.parse(rawWaypoints);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(pt => {
+                        if (Array.isArray(pt) && pt.length >= 2) {
+                            rutaEditorPoints.push([Number(pt[0]), Number(pt[1])]);
+                        }
+                    });
+                }
+            } catch {}
+        }
+
+        if (rutaEditorMap) {
+            rutaEditorMap.remove();
+            rutaEditorMap = null;
+            rutaEditorLine = null;
+            rutaEditorMarkers = [];
+        }
+
+        const el = document.getElementById('rutaEditorMap');
+        if (!el || typeof L === 'undefined') return;
+
+        rutaEditorMap = L.map(el).setView([9.4410, -64.4600], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(rutaEditorMap);
+
+        rutaEditorMap.on('click', function (e) {
+            rutaEditorPoints.push([
+                Number(e.latlng.lat.toFixed(6)),
+                Number(e.latlng.lng.toFixed(6))
+            ]);
+            actualizarMapaEditor();
+            calcularDistanciaDesdeMapa();
+        });
+
+        actualizarMapaEditor();
+        if (rutaEditorPoints.length > 1) {
+            rutaEditorMap.fitBounds(L.latLngBounds(rutaEditorPoints).pad(0.2));
+        } else if (rutaEditorPoints.length === 1) {
+            rutaEditorMap.setView(rutaEditorPoints[0], 15);
+        }
+        setTimeout(() => { if (rutaEditorMap) rutaEditorMap.invalidateSize(); }, 200);
+    }
+
+    function _renderMapaEditorHtml() {
+        return `
+            <div style="margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                    <label style="font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <i class="fa-solid fa-map-location-dot" style="color: var(--accent-green); margin-right: 4px;"></i>
+                        Trazado en el mapa (haz clic en las calles en orden):
+                    </label>
+                    <span id="wpCountLabel" style="font-size: 11.5px; color: #1d4ed8; font-weight: 700;">0 punto(s) marcados</span>
+                </div>
+                <div id="rutaEditorMap"></div>
+                <input type="hidden" name="coordenadas_waypoints" id="rutaWaypointsInput" value="">
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button type="button" onclick="deshacerPuntoRuta()" class="btn-modern" style="padding: 6px 10px; font-size: 12px; background: #f8fafc; border: 1px solid var(--card-border); color: #334155;">
+                        <i class="fa-solid fa-rotate-left"></i> Deshacer punto
+                    </button>
+                    <button type="button" onclick="limpiarPuntosRuta()" class="btn-modern" style="padding: 6px 10px; font-size: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;">
+                        <i class="fa-solid fa-eraser"></i> Limpiar traza
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
     function abrirModalCrearRuta() {
         const content = `
             <form action="{% url 'ruta_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
-                <div style="margin-bottom: 16px;">
+                <div style="margin-bottom: 14px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre de la Ruta:</label>
                     <input type="text" name="nombre" class="form-input" placeholder="Ej. Ruta Casco Urbano y Av. Bolívar" required>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Sector / Zona:</label>
                         <input type="text" name="zona" class="form-input" placeholder="Ej. Sector Este" required>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Distancia Estimada (Km):</label>
-                        <input type="number" step="0.01" name="distancia_estimada_km" class="form-input" placeholder="Ej. 22.5" required>
+                        <input type="number" step="0.01" id="rutaDistanciaInput" name="distancia_estimada_km" class="form-input" placeholder="Ej. 12.5" required>
                     </div>
                 </div>
-                <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Descripción y Puntos de Recolección:</label>
-                    <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalla avenidas principales, puntos de contenedores y depósitos..."></textarea>
+                ${_renderMapaEditorHtml()}
+                <div style="margin-bottom: 18px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Descripción y calles clave:</label>
+                    <textarea name="descripcion" class="form-input" rows="2" placeholder="Avenidas principales, puntos de contenedores y referencias..."></textarea>
                 </div>
-                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px;">
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 15px;">
                     <i class="fa-solid fa-floppy-disk"></i> Registrar Ruta de Recolección
                 </button>
             </form>
         `;
         openModal('<i class="fa-solid fa-circle-plus" style="color: var(--accent-green-light);"></i> Registrar Nueva Ruta', content);
+        setTimeout(() => iniciarMapaEditorRuta(''), 80);
     }
 
-    function abrirModalEditarRuta(id, nombre, zona, distancia, descripcion) {
+    function abrirModalEditarRuta(id, nombre, zona, distancia, descripcion, waypoints) {
         const actionUrl = "{% url 'ruta_editar' 0 %}".replace('0', id);
         const content = `
             <form action="${actionUrl}" method="post" style="text-align: left;">
                 {% csrf_token %}
-                <div style="margin-bottom: 16px;">
+                <div style="margin-bottom: 14px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre de la Ruta:</label>
                     <input type="text" name="nombre" class="form-input" value="${escapeHtml(nombre)}" required>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Sector / Zona:</label>
                         <input type="text" name="zona" class="form-input" value="${escapeHtml(zona)}" required>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Distancia Estimada (Km):</label>
-                        <input type="number" step="0.01" name="distancia_estimada_km" class="form-input" value="${escapeHtml(distancia)}" required>
+                        <input type="number" step="0.01" id="rutaDistanciaInput" name="distancia_estimada_km" class="form-input" value="${escapeHtml(distancia)}" required>
                     </div>
                 </div>
-                <div style="margin-bottom: 24px;">
+                ${_renderMapaEditorHtml()}
+                <div style="margin-bottom: 18px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Descripción:</label>
-                    <textarea name="descripcion" class="form-input" rows="3">${escapeHtml(descripcion)}</textarea>
+                    <textarea name="descripcion" class="form-input" rows="2">${escapeHtml(descripcion)}</textarea>
                 </div>
                 <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 12px; font-size: 14px;">
                     <i class="fa-solid fa-pen-to-square"></i> Actualizar Información
@@ -186,6 +370,7 @@
             </form>
         `;
         openModal('<i class="fa-solid fa-pen-to-square" style="color: #2563eb;"></i> Modificar Ruta', content);
+        setTimeout(() => iniciarMapaEditorRuta(waypoints || ''), 80);
     }
 
     function abrirModalEliminarRuta(id, nombre) {

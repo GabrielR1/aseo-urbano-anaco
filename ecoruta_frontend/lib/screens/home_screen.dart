@@ -72,6 +72,17 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    List<List<double>> parseCoords(dynamic raw) {
+      if (raw is! List) return const [];
+      final out = <List<double>>[];
+      for (final item in raw) {
+        if (item is List && item.length >= 2 && item[0] is num && item[1] is num) {
+          out.add([(item[0] as num).toDouble(), (item[1] as num).toDouble()]);
+        }
+      }
+      return out;
+    }
+
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -81,6 +92,8 @@ class _HomeScreenState extends State<HomeScreen> {
           rutaNombre: (jornada['ruta_nombre'] ?? 'Ruta #$jornadaId').toString(),
           rutaZona: (jornada['ruta_zona'] ?? '').toString(),
           rutaDescripcion: (jornada['ruta_descripcion'] ?? '').toString(),
+          rutaWaypoints: parseCoords(jornada['ruta_waypoints']),
+          trayectoriaInicial: parseCoords(jornada['trayectoria_actual']),
           vehiculoPlaca: (jornada['vehiculo_placa'] ?? '').toString(),
           vehiculoModelo: (jornada['vehiculo_modelo'] ?? '').toString(),
           distanciaInicialKm: (jornada['distancia_real_km'] is num)

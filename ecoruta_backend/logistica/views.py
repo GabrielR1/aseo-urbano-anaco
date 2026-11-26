@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -49,6 +50,29 @@ def _safe_float(value):
         return float(value)
     except (ValueError, TypeError):
         return None
+
+
+def _parse_waypoints(raw):
+    """Convierte el JSON de coordenadas_waypoints en una lista [[lat, lng], ...] válida."""
+    if not raw or not str(raw).strip():
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    result = []
+    for item in parsed:
+        lat = lng = None
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            lat, lng = _safe_float(item[0]), _safe_float(item[1])
+        elif isinstance(item, dict):
+            lat = _safe_float(item.get('lat', item.get('latitud')))
+            lng = _safe_float(item.get('lng', item.get('longitud')))
+        if lat is not None and lng is not None and -90 <= lat <= 90 and -180 <= lng <= 180:
+            result.append([round(lat, 6), round(lng, 6)])
+    return result
 
 
 def _prefetch_puntos():
@@ -275,10 +299,14 @@ def mis_jornadas(request):
                 'ruta_nombre': j.ruta.nombre,
                 'ruta_zona': j.ruta.zona or 'Municipio Anaco',
                 'ruta_descripcion': j.ruta.descripcion or '',
+                'ruta_waypoints': _parse_waypoints(j.ruta.coordenadas_waypoints),
                 'distancia_estimada_km': float(j.ruta.distancia_estimada_km or 0),
                 'chofer': j.chofer.usuario.get_full_name() or j.chofer.usuario.username,
                 'distancia_real_km': j.calcular_distancia_real_km(puntos=puntos),
                 'puntos_count': len(puntos),
+                'trayectoria_actual': [
+                    [float(p.latitud), float(p.longitud)] for p in puntos[-300:]
+                ],
                 'toneladas_recolectadas': float(j.toneladas_recolectadas or 0),
                 'ultima_actualizacion': (
                     timezone.localtime(ultimo.timestamp).strftime('%H:%M:%S') if ultimo else None
