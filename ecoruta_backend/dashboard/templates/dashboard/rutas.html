@@ -479,24 +479,11 @@
                 {% csrf_token %}
                 <input type="hidden" name="next_url" value="{% url 'dashboard_rutas' %}">
 
-                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;">
-                    <i class="fa-solid fa-satellite-dish" style="color: #2563eb; font-size: 18px; margin-top: 2px;"></i>
-                    <div style="font-size: 12.5px; color: #1e40af; line-height: 1.4;">
-                        <strong>Seguimiento satelital por teléfono móvil:</strong><br>
-                        Puedes asignar cualquier camión con cualquier chofer. Quien transmite las coordenadas GPS en tiempo real es el <strong>teléfono celular del conductor</strong> al iniciar su jornada en la aplicación móvil.
-                    </div>
-                </div>
-
                 <div style="margin-bottom: 14px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-solid fa-route" style="color: var(--accent-green); margin-right: 5px;"></i> 1. Ruta de Recolección:</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Circuito seleccionado</span>
-                    </label>
-                    <select name="ruta" id="rutaModalSelectRuta" class="form-select" onchange="actualizarPreviewRutaModal()" required>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Ruta</label>
+                    <select name="ruta" id="rutaModalSelectRuta" class="form-select" required>
                         {% for r in rutas %}
-                        <option value="{{ r.id }}" data-nombre="{{ r.nombre }}" data-km="{{ r.distancia_estimada_km }}" {% if rutaIdPrevia == r.id %}selected{% endif %}>
-                            {{ r.nombre }} [{{ r.zona|default:"Sector General" }}] • {{ r.distancia_estimada_km }} Km
-                        </option>
+                        <option value="{{ r.id }}">{{ r.nombre }}</option>
                         {% empty %}
                         <option value="">No hay rutas registradas</option>
                         {% endfor %}
@@ -504,86 +491,44 @@
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-solid fa-truck" style="color: #2563eb; margin-right: 5px;"></i> 2. Camión / Unidad Asignada:</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Cualquier vehículo</span>
-                    </label>
-                    <select name="vehiculo" id="rutaModalSelectVehiculo" class="form-select" onchange="actualizarPreviewRutaModal()" required>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Unidad</label>
+                    <select name="vehiculo" id="rutaModalSelectVehiculo" class="form-select" required>
                         {% for v in vehiculos %}
-                        <option value="{{ v.id }}" data-placa="{{ v.placa }}" data-marca="{{ v.marca }} {{ v.modelo }}">
-                            [Placa: {{ v.placa }}] • {{ v.marca }} {{ v.modelo }} ({{ v.capacidad_toneladas }} Ton)
-                        </option>
+                        <option value="{{ v.id }}">{{ v.placa }} — {{ v.marca }}{% if v.estado != 'activo' %} ({{ v.get_estado_display }}){% endif %}</option>
                         {% empty %}
-                        <option value="">No hay vehículos registrados</option>
+                        <option value="">No hay unidades registradas</option>
                         {% endfor %}
                     </select>
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-solid fa-mobile-screen-button" style="color: #16a34a; margin-right: 5px;"></i> 3. Chofer a Cargo (Teléfono GPS a rastrear):</span>
-                        <span style="font-size: 11px; color: var(--accent-green); font-weight: 700;">Emisor satelital</span>
-                    </label>
-                    <select name="chofer" id="rutaModalSelectChofer" class="form-select" onchange="actualizarPreviewRutaModal()" required>
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Conductor</label>
+                    <select name="chofer" id="rutaModalSelectChofer" class="form-select" required>
                         {% for c in choferes %}
-                        <option value="{{ c.id }}" data-nombre="{{ c.usuario.get_full_name|default:c.usuario.username }}">
-                            👤 {{ c.usuario.get_full_name|default:c.usuario.username }} [Lic: {{ c.licencia }}] {% if c.telefono %}• Tel: {{ c.telefono }}{% endif %}
-                        </option>
+                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }}</option>
                         {% empty %}
-                        <option value="">No hay choferes disponibles</option>
+                        <option value="">No hay conductores disponibles</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div style="margin-bottom: 16px;">
-                    <label style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <span><i class="fa-regular fa-calendar-days" style="color: var(--text-muted); margin-right: 5px;"></i> 4. Fecha de Ejecución:</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Hoy por defecto</span>
-                    </label>
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Fecha</label>
                     <input type="date" name="fecha" id="rutaModalInputFecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" required>
                 </div>
 
-                <div id="rutaModalPreviewBox" style="background: #f8fafc; border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 14px; margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-clipboard-check" style="color: var(--accent-green); margin-right: 4px;"></i> Resumen de Asignación
-                    </div>
-                    <div id="rutaModalPreviewTexto" style="font-size: 12.5px; color: #0f172a; line-height: 1.5;">
-                        Cargando resumen...
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px; font-weight: 700;">
-                    <i class="fa-solid fa-check-double"></i> Asignar y Confirmar Recorrido
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
+                    Asignar ruta
                 </button>
             </form>
         `;
-        openModal('<i class="fa-solid fa-truck-fast" style="color: var(--accent-green);"></i> Asignar Ruta a Unidad y Conductor', content);
+        openModal('Asignar ruta', content);
         if (rutaIdPrevia) {
-            const selRuta = document.getElementById('rutaModalSelectRuta');
-            if (selRuta) selRuta.value = rutaIdPrevia;
+            setTimeout(() => {
+                const selRuta = document.getElementById('rutaModalSelectRuta');
+                if (selRuta) selRuta.value = String(rutaIdPrevia);
+            }, 30);
         }
-        setTimeout(actualizarPreviewRutaModal, 100);
-    }
-
-    function actualizarPreviewRutaModal() {
-        const selRuta = document.getElementById('rutaModalSelectRuta');
-        const selVehiculo = document.getElementById('rutaModalSelectVehiculo');
-        const selChofer = document.getElementById('rutaModalSelectChofer');
-        const preview = document.getElementById('rutaModalPreviewTexto');
-        if (!preview) return;
-
-        const rutaOpt = selRuta ? selRuta.options[selRuta.selectedIndex] : null;
-        const vehOpt = selVehiculo ? selVehiculo.options[selVehiculo.selectedIndex] : null;
-        const choferOpt = selChofer ? selChofer.options[selChofer.selectedIndex] : null;
-
-        const rutaNombre = rutaOpt ? (rutaOpt.dataset.nombre || rutaOpt.text.trim()) : 'Ruta seleccionada';
-        const vehPlaca = vehOpt ? (vehOpt.dataset.placa || vehOpt.text.trim()) : 'Vehículo seleccionado';
-        const choferNombre = choferOpt ? (choferOpt.dataset.nombre || choferOpt.text.trim()) : 'Chofer seleccionado';
-
-        preview.innerHTML = `
-            El camión <strong style="color: #1d4ed8;">[${escapeHtml(vehPlaca)}]</strong> cubrirá la <strong style="color: #15803d;">${escapeHtml(rutaNombre)}</strong>.<br>
-            📱 <span style="color: #0369a1;">Se rastreará el móvil de:</span> <strong>${escapeHtml(choferNombre)}</strong>.
-        `;
     }
 </script>
 {% endblock %}

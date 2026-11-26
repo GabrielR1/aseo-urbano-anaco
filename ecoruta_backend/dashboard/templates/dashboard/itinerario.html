@@ -212,10 +212,10 @@
 
         <div class="dispatch-grid">
             <div class="dispatch-field">
-                <label for="quickRuta"><i class="fa-solid fa-route" style="color: var(--accent-green);"></i> Ruta / Sector</label>
+                <label for="quickRuta">Ruta</label>
                 <select name="ruta" id="quickRuta" class="form-select" required>
                     {% for r in rutas %}
-                    <option value="{{ r.id }}">{{ r.nombre }} ({{ r.distancia_estimada_km }} km)</option>
+                    <option value="{{ r.id }}">{{ r.nombre }}</option>
                     {% empty %}
                     <option value="">Registra una ruta primero</option>
                     {% endfor %}
@@ -223,11 +223,11 @@
             </div>
 
             <div class="dispatch-field">
-                <label for="quickVehiculo"><i class="fa-solid fa-truck" style="color: #2563eb;"></i> Unidad</label>
+                <label for="quickVehiculo">Unidad</label>
                 <select name="vehiculo" id="quickVehiculo" class="form-select" required>
                     {% for v in vehiculos %}
                     <option value="{{ v.id }}">
-                        {{ v.placa }} · {{ v.marca }} {{ v.modelo }}{% if v.estado != 'activo' %} [{{ v.get_estado_display }}]{% elif v.id in vehiculos_ocupados_hoy %} (con turno hoy){% endif %}
+                        {{ v.placa }} — {{ v.marca }}{% if v.estado != 'activo' %} ({{ v.get_estado_display }}){% elif v.id in vehiculos_ocupados_hoy %} · en turno{% endif %}
                     </option>
                     {% empty %}
                     <option value="">Sin unidades</option>
@@ -236,26 +236,26 @@
             </div>
 
             <div class="dispatch-field">
-                <label for="quickChofer"><i class="fa-solid fa-id-card" style="color: #0369a1;"></i> Chofer</label>
+                <label for="quickChofer">Conductor</label>
                 <select name="chofer" id="quickChofer" class="form-select" required>
                     {% for c in choferes %}
                     <option value="{{ c.id }}">
-                        {{ c.usuario.get_full_name|default:c.usuario.username }}{% if c.id in choferes_ocupados_hoy %} (con turno hoy){% endif %}
+                        {{ c.usuario.get_full_name|default:c.usuario.username }}{% if c.id in choferes_ocupados_hoy %} · en turno{% endif %}
                     </option>
                     {% empty %}
-                    <option value="">Sin choferes operativos</option>
+                    <option value="">Sin conductores</option>
                     {% endfor %}
                 </select>
             </div>
 
             <div class="dispatch-field">
-                <label for="quickFecha"><i class="fa-regular fa-calendar" style="color: var(--text-muted);"></i> Fecha base</label>
+                <label for="quickFecha">Fecha</label>
                 <input type="date" name="fecha" id="quickFecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" required onchange="onQuickFechaChange()">
             </div>
 
             <div>
                 <button type="submit" class="btn-modern btn-primary-green" style="height: 42px; padding: 0 20px; white-space: nowrap; font-weight: 800; width: 100%;">
-                    <i class="fa-solid fa-paper-plane"></i> Asignar
+                    <i class="fa-solid fa-check"></i> Asignar
                 </button>
             </div>
         </div>
@@ -752,63 +752,50 @@
                 {% csrf_token %}
                 <input type="hidden" name="next_url" value="{% url 'dashboard_itinerario' %}">
 
-                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px; color: #166534; font-weight: 600;">
-                    <i class="fa-solid fa-calendar-day" style="margin-right: 6px;"></i>
-                    Programando salida para el <strong>${formatIsoToEs(fechaSel)}</strong>
-                </div>
-
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <i class="fa-solid fa-route" style="color: var(--accent-green); margin-right: 5px;"></i> 1. Ruta de Recolección
-                    </label>
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Ruta</label>
                     <select name="ruta" id="modalSelectRuta" class="form-select" required>
                         {% for r in rutas %}
-                        <option value="{{ r.id }}">{{ r.nombre }} [{{ r.zona|default:"Sector General" }}] • {{ r.distancia_estimada_km }} Km</option>
+                        <option value="{{ r.id }}">{{ r.nombre }}</option>
                         {% empty %}
                         <option value="">No hay rutas registradas</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <i class="fa-solid fa-truck" style="color: #2563eb; margin-right: 5px;"></i> 2. Unidad / Camión
-                    </label>
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Unidad</label>
                     <select name="vehiculo" id="modalSelectVehiculo" class="form-select" required>
                         {% for v in vehiculos %}
-                        <option value="{{ v.id }}">[{{ v.placa }}] {{ v.marca }} {{ v.modelo }}{% if v.estado != 'activo' %} [{{ v.get_estado_display }}]{% endif %}</option>
+                        <option value="{{ v.id }}">{{ v.placa }} — {{ v.marca }}{% if v.estado != 'activo' %} ({{ v.get_estado_display }}){% endif %}</option>
                         {% empty %}
-                        <option value="">No hay vehículos registrados</option>
+                        <option value="">No hay unidades registradas</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div style="margin-bottom: 12px;">
-                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <i class="fa-solid fa-mobile-screen-button" style="color: #16a34a; margin-right: 5px;"></i> 3. Conductor a Cargo
-                    </label>
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Conductor</label>
                     <select name="chofer" id="modalSelectChofer" class="form-select" required>
                         {% for c in choferes %}
-                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }} [Lic: {{ c.licencia }}]</option>
+                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }}</option>
                         {% empty %}
-                        <option value="">No hay choferes disponibles</option>
+                        <option value="">No hay conductores disponibles</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div style="margin-bottom: 18px;">
-                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
-                        <i class="fa-regular fa-calendar-days" style="color: var(--text-muted); margin-right: 5px;"></i> 4. Fecha de Ejecución
-                    </label>
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Fecha</label>
                     <input type="date" name="fecha" id="modalInputFecha" class="form-input" value="${fechaSel}" required>
                 </div>
 
                 <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
-                    <i class="fa-solid fa-check-double"></i> Confirmar Asignación
+                    Asignar ruta
                 </button>
             </form>
         `;
-        openModal('<i class="fa-solid fa-calendar-plus" style="color: var(--accent-green);"></i> Asignar Ruta en Calendario', content);
+        openModal('Asignar ruta', content);
 
         setTimeout(() => {
             if (opts.rutaId) {
