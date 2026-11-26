@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,11 +16,34 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  Timer? _slowHintTimer;
   bool _isLoading = false;
+  bool _showSlowServerHint = false;
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      final notice = auth.sessionNotice;
+      if (notice != null && notice.isNotEmpty) {
+        auth.clearSessionNotice();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(notice),
+            backgroundColor: Colors.orange.shade800,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _slowHintTimer?.cancel();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -31,24 +57,38 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Ingresa tu usuario y contraseña para continuar.'),
-          backgroundColor: Colors.redAccent.shade700,
+          backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    setState(() => _isLoading = true);
-    final auth = Provider.of<AuthProvider>(context, listen: false);
+    setState(() {
+      _isLoading = true;
+      _showSlowServerHint = false;
+    });
+    _slowHintTimer?.cancel();
+    _slowHintTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _isLoading) {
+        setState(() => _showSlowServerHint = true);
+      }
+    });
+
+    final auth = context.read<AuthProvider>();
     final success = await auth.login(user, pass);
+    _slowHintTimer?.cancel();
 
     if (mounted) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _showSlowServerHint = false;
+      });
       if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(auth.lastError ?? 'Usuario o contraseña incorrectos.'),
-            backgroundColor: Colors.redAccent.shade700,
+            backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -58,24 +98,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _openServerConfig() {
     final serverController = TextEditingController(text: ApiService.baseUrl);
+    final colors = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.cloud_outlined, color: Color(0xFF10B981), size: 22),
-            SizedBox(width: 8),
-            Text('Conexión al servidor', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Icon(Icons.cloud_outlined, color: colors.primary, size: 22),
+            const SizedBox(width: 8),
+            const Text('Conexión al servidor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Elige un servidor o escribe una dirección:',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
+              style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7), fontSize: 12.5),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -95,12 +135,10 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: serverController,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(fontSize: 13.5),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: const Color(0xFF0F172A),
                 hintText: ApiService.defaultProductionUrl,
-                hintStyle: const TextStyle(color: Colors.white30),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
@@ -109,10 +147,13 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onPrimary,
+            ),
             onPressed: () async {
               final newUrl = serverController.text.trim();
               if (newUrl.isNotEmpty) {
@@ -121,16 +162,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Servidor actualizado correctamente.'),
-                      backgroundColor: Color(0xFF16A34A),
+                    SnackBar(
+                      content: Text('Servidor configurado: ${ApiService.serverLabel}'),
+                      backgroundColor: const Color(0xFF15803D),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
                 }
               }
             },
-            child: const Text('Guardar', style: TextStyle(color: Color(0xFF052E16), fontWeight: FontWeight.bold)),
+            child: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -139,22 +180,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bgColor = Color(0xFF090D16);
-    const cardColor = Color(0xFF111827);
-    const accentGreen = Color(0xFF10B981);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final themeProvider = context.read<ThemeProvider>();
+    final muted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+    final inputFill = isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC);
 
     return Scaffold(
-      backgroundColor: bgColor,
       body: SafeArea(
         child: Stack(
           children: [
             Positioned(
               top: 8,
               right: 8,
-              child: IconButton(
-                icon: const Icon(Icons.tune_rounded, color: Color(0xFF64748B), size: 22),
-                tooltip: 'Cambiar servidor',
-                onPressed: _openServerConfig,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: muted),
+                    tooltip: isDark ? 'Modo día' : 'Modo noche',
+                    onPressed: themeProvider.toggleTheme,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.tune_rounded, color: muted),
+                    tooltip: 'Cambiar servidor',
+                    onPressed: _openServerConfig,
+                  ),
+                ],
               ),
             ),
             Center(
@@ -170,9 +223,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFCBD5E1),
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
+                              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
                               blurRadius: 16,
                               offset: const Offset(0, 6),
                             ),
@@ -185,40 +241,47 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      const Text(
+                      Text(
                         'App para Choferes',
-                        style: TextStyle(fontSize: 14.5, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                        style: TextStyle(fontSize: 15, color: muted, fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 22),
                       Container(
                         padding: const EdgeInsets.all(22.0),
                         decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.4 : 0.85)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                              blurRadius: 18,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TextField(
                               controller: _usernameController,
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              style: TextStyle(color: colors.onSurface, fontSize: 16, fontWeight: FontWeight.w500),
                               textInputAction: TextInputAction.next,
                               autofillHints: const [AutofillHints.username],
                               decoration: InputDecoration(
                                 labelText: 'Usuario',
-                                labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
-                                prefixIcon: const Icon(Icons.person_outline, color: accentGreen),
+                                labelStyle: TextStyle(color: muted),
+                                prefixIcon: Icon(Icons.person_outline, color: colors.primary),
                                 filled: true,
-                                fillColor: const Color(0xFF090D16),
+                                fillColor: inputFill,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                                  borderSide: BorderSide(color: colors.outline),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: accentGreen, width: 1.6),
+                                  borderSide: BorderSide(color: colors.primary, width: 1.8),
                                 ),
                               ),
                             ),
@@ -226,7 +289,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              style: TextStyle(color: colors.onSurface, fontSize: 16, fontWeight: FontWeight.w500),
                               textInputAction: TextInputAction.done,
                               autofillHints: const [AutofillHints.password],
                               onSubmitted: (_) {
@@ -234,27 +297,27 @@ class _LoginScreenState extends State<LoginScreen> {
                               },
                               decoration: InputDecoration(
                                 labelText: 'Contraseña',
-                                labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
-                                prefixIcon: const Icon(Icons.lock_outline, color: accentGreen),
+                                labelStyle: TextStyle(color: muted),
+                                prefixIcon: Icon(Icons.lock_outline, color: colors.primary),
                                 suffixIcon: IconButton(
                                   icon: Icon(
                                     _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                    color: const Color(0xFF94A3B8),
+                                    color: muted,
                                   ),
                                   onPressed: () {
                                     setState(() => _obscurePassword = !_obscurePassword);
                                   },
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFF090D16),
+                                fillColor: inputFill,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                                  borderSide: BorderSide(color: colors.outline),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: accentGreen, width: 1.6),
+                                  borderSide: BorderSide(color: colors.primary, width: 1.8),
                                 ),
                               ),
                             ),
@@ -264,32 +327,56 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _login,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: accentGreen,
-                                  foregroundColor: const Color(0xFF052E16),
+                                  backgroundColor: colors.primary,
+                                  foregroundColor: colors.onPrimary,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
                                 child: _isLoading
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 24,
                                         height: 24,
                                         child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Color(0xFF052E16),
+                                          strokeWidth: 2.6,
+                                          color: colors.onPrimary,
                                         ),
                                       )
                                     : const Text(
                                         'Entrar',
-                                        style: TextStyle(
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                                       ),
                               ),
                             ),
+                            if (_showSlowServerHint) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                'Conectando con el servidor, esto puede tardar unos segundos...',
+                                style: TextStyle(color: muted, fontSize: 12.5),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      InkWell(
+                        onTap: _openServerConfig,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.cloud_done_outlined, size: 15, color: muted),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Servidor: ${ApiService.serverLabel}',
+                                style: TextStyle(color: muted, fontSize: 12.5, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

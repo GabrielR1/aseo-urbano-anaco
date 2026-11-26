@@ -5,10 +5,12 @@ class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   bool _isAuthenticated = false;
   bool _isLoading = true;
+  String? _sessionNotice;
 
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
   String? get lastError => _apiService.lastError;
+  String? get sessionNotice => _sessionNotice;
 
   AuthProvider() {
     _checkAuthStatus();
@@ -22,6 +24,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> login(String username, String password) async {
+    _sessionNotice = null;
     final success = await _apiService.login(username, password);
     if (success) {
       _isAuthenticated = true;
@@ -30,9 +33,14 @@ class AuthProvider with ChangeNotifier {
     return success;
   }
 
-  Future<void> logout() async {
+  Future<void> logout({String? notice}) async {
     await _apiService.logout();
     _isAuthenticated = false;
+    _sessionNotice = notice;
     notifyListeners();
+  }
+
+  void clearSessionNotice() {
+    _sessionNotice = null;
   }
 }

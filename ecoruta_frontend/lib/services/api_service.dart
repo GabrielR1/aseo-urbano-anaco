@@ -10,9 +10,12 @@ class ApiService {
   static const String defaultLocalUrl = 'http://127.0.0.1:8000/api';
 
   static String customUrl = '';
-  static const Duration _timeout = Duration(seconds: 15);
+  // Timeout amplio (55s) para tolerar el arranque en frío del plan gratuito de Render.
+  static const Duration _timeout = Duration(seconds: 55);
+  static const Duration _telemetryTimeout = Duration(seconds: 20);
 
   String? lastError;
+  bool sessionExpired = false;
 
   static String _normalizeUrl(String raw) {
     var clean = raw.trim();
@@ -32,10 +35,14 @@ class ApiService {
     if (customUrl.isNotEmpty) {
       return _normalizeUrl(customUrl);
     }
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.windows) {
-      return defaultLocalUrl;
-    }
     return defaultProductionUrl;
+  }
+
+  static String get serverLabel {
+    final url = baseUrl.toLowerCase();
+    if (url.contains('onrender.com')) return 'Nube (Render)';
+    if (url.contains('127.0.0.1') || url.contains('localhost')) return 'Local (PC)';
+    return url.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/api$'), '');
   }
 
   final storage = const FlutterSecureStorage();
@@ -87,6 +94,7 @@ class ApiService {
 
   Future<bool> login(String username, String password) async {
     lastError = null;
+    sessionExpired = false;
     try {
       final response = await http
           .post(
@@ -113,7 +121,7 @@ class ApiService {
       }
       return false;
     } on TimeoutException {
-      lastError = 'El servidor tardó en responder. Intenta de nuevo en unos segundos.';
+      lastError = 'El servidor tardó demasiado en responder. Intenta de nuevo en unos segundos.';
       return false;
     } catch (e) {
       debugPrint('Error during login: $e');
@@ -123,6 +131,7 @@ class ApiService {
   }
 
   Future<void> logout() async {
+    sessionExpired = false;
     try {
       await storage.delete(key: 'auth_token');
     } catch (e) {
@@ -131,6 +140,7 @@ class ApiService {
   }
 
   Future<List<dynamic>> getMisJornadas() async {
+    sessionExpired = false;
     try {
       final response = await http
           .get(
@@ -138,6 +148,10 @@ class ApiService {
             headers: await getHeaders(),
           )
           .timeout(_timeout);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return [];
+      }
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return data is Map ? (data['jornadas'] ?? []) : [];
@@ -150,6 +164,7 @@ class ApiService {
   }
 
   Future<bool> iniciarJornada(int jornadaId) async {
+    sessionExpired = false;
     try {
       final response = await http
           .post(
@@ -157,6 +172,10 @@ class ApiService {
             headers: await getHeaders(),
           )
           .timeout(_timeout);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return false;
+      }
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error iniciando jornada: $e');
@@ -165,6 +184,7 @@ class ApiService {
   }
 
   Future<bool> finalizarJornada(int jornadaId, {double? toneladas}) async {
+    sessionExpired = false;
     try {
       final payload = <String, dynamic>{};
       if (toneladas != null) {
@@ -177,6 +197,10 @@ class ApiService {
             body: jsonEncode(payload),
           )
           .timeout(_timeout);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return false;
+      }
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error finalizando jornada: $e');
@@ -204,7 +228,11 @@ class ApiService {
               'precision_metros': double.parse((accuracy ?? 5.0).toStringAsFixed(1)),
             }),
           )
-          .timeout(_timeout);
+          .timeout(_telemetryTimeout);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return false;
+      }
       return response.statusCode == 201;
     } catch (e) {
       debugPrint('Error sending location: $e');
@@ -220,7 +248,11 @@ class ApiService {
             headers: await getHeaders(),
             body: jsonEncode({'puntos': puntos}),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return false;
+      }
       return response.statusCode == 201;
     } catch (e) {
       debugPrint('Error sincronizando lote offline: $e');
@@ -266,6 +298,10 @@ class ApiService {
             headers: await getHeaders(),
           )
           .timeout(_timeout);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return null;
+      }
       if (response.statusCode == 200) {
         return jsonDecode(utf8.decode(response.bodyBytes));
       }
@@ -273,25 +309,6 @@ class ApiService {
     } catch (e) {
       debugPrint('Error al obtener gamificacion: $e');
       return null;
-    }
-  }
-
-  Future<List<dynamic>> getNotificaciones() async {
-    try {
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/logistica/notificaciones/'),
-            headers: await getHeaders(),
-          )
-          .timeout(_timeout);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data is Map ? (data['notificaciones'] ?? []) : [];
-      }
-      return [];
-    } catch (e) {
-      debugPrint('Error al obtener notificaciones: $e');
-      return [];
     }
   }
 }

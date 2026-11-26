@@ -4,6 +4,7 @@ Configuración Django del proyecto EcoRuta / Aseo Urbano Anaco.
 
 import importlib.util
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -134,19 +135,26 @@ TEMPLATES = [
 WSGI_APPLICATION = 'EcoRuta.wsgi.application'
 
 
-# Database
-DATABASE_URL = os.getenv('DATABASE_URL')
-USE_POSTGRES = os.getenv('USE_POSTGRES', 'False').lower() in ('true', '1', 't')
+# Database (PostgreSQL exclusivo; SQLite en memoria solo al ejecutar manage.py test)
+DATABASE_URL = (os.getenv('DATABASE_URL') or '').strip()
+RUNNING_TESTS = 'test' in sys.argv
 
-if DATABASE_URL and dj_database_url is not None:
+if RUNNING_TESTS:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+elif DATABASE_URL and dj_database_url is not None:
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
             conn_max_age=600,
-            ssl_require=not DEBUG,
+            ssl_require=('render.com' in DATABASE_URL.lower()) or (not DEBUG),
         )
     }
-elif USE_POSTGRES:
+else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -155,13 +163,6 @@ elif USE_POSTGRES:
             'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 

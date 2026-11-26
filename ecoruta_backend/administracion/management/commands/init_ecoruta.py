@@ -37,10 +37,8 @@ class Command(BaseCommand):
             admin_user.save()
             self.stdout.write(self.style.SUCCESS("Usuario 'admin' creado."))
 
-        Chofer.objects.get_or_create(
-            usuario=admin_user,
-            defaults={'licencia': 'LIC-ADMIN-01', 'telefono': ''}
-        )
+        # El administrador es personal de oficina; limpiar perfil de chofer previo si no tiene jornadas
+        Chofer.objects.filter(usuario=admin_user, jornadas__isnull=True).delete()
 
         # Choferes base
         chofer_pass = os.getenv('CHOFER_INITIAL_PASSWORD', 'chofer123')

@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 
 class IncidentScreen extends StatefulWidget {
@@ -67,9 +69,9 @@ class _IncidentScreenState extends State<IncidentScreen> {
   }
 
   void _mostrarOpcionesFoto() {
+    final colors = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -80,16 +82,16 @@ class _IncidentScreenState extends State<IncidentScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF10B981)),
-                title: const Text('Tomar foto con la cámara', style: TextStyle(color: Colors.white)),
+                leading: Icon(Icons.camera_alt_rounded, color: colors.primary),
+                title: const Text('Tomar foto con la cámara'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickPhoto(ImageSource.camera);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF60A5FA)),
-                title: const Text('Elegir de la galería', style: TextStyle(color: Colors.white)),
+                leading: Icon(Icons.photo_library_rounded, color: colors.secondary),
+                title: const Text('Elegir de la galería'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickPhoto(ImageSource.gallery);
@@ -97,8 +99,8 @@ class _IncidentScreenState extends State<IncidentScreen> {
               ),
               if (_imageBytes != null)
                 ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Color(0xFFFCA5A5)),
-                  title: const Text('Quitar foto', style: TextStyle(color: Color(0xFFFCA5A5))),
+                  leading: Icon(Icons.delete_outline, color: colors.error),
+                  title: Text('Quitar foto', style: TextStyle(color: colors.error)),
                   onTap: () {
                     Navigator.pop(ctx);
                     setState(() => _imageBytes = null);
@@ -175,15 +177,23 @@ class _IncidentScreenState extends State<IncidentScreen> {
         );
       }
 
-      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final streamed = await request.send().timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 401 && mounted) {
+        await context.read<AuthProvider>().logout(
+              notice: 'Tu sesión venció. Inicia sesión nuevamente.',
+            );
+        if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
+        return;
+      }
 
       if (response.statusCode == 201) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Novedad enviada al centro de control.'),
-            backgroundColor: Color(0xFF16A34A),
+            backgroundColor: Color(0xFF15803D),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -202,7 +212,7 @@ class _IncidentScreenState extends State<IncidentScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(mensaje),
-            backgroundColor: Colors.redAccent.shade700,
+            backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -222,7 +232,7 @@ class _IncidentScreenState extends State<IncidentScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Sin conexión con el servidor. Intenta de nuevo.'),
-            backgroundColor: Colors.redAccent.shade700,
+            backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -234,22 +244,23 @@ class _IncidentScreenState extends State<IncidentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF090D16),
       appBar: AppBar(
         title: const Text('Reportar novedad', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               '¿Qué ocurrió en la ruta?',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+              style: TextStyle(color: colors.onSurface, fontSize: 16.5, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -260,12 +271,14 @@ class _IncidentScreenState extends State<IncidentScreen> {
                 return ChoiceChip(
                   label: Text(motivo),
                   selected: selected,
-                  selectedColor: const Color(0x33EF4444),
-                  backgroundColor: const Color(0xFF1E293B),
-                  side: BorderSide(color: selected ? const Color(0xFFEF4444) : const Color(0xFF334155)),
+                  selectedColor: isDark ? const Color(0x33EF4444) : const Color(0xFFFEE2E2),
+                  backgroundColor: colors.surface,
+                  side: BorderSide(color: selected ? const Color(0xFFDC2626) : colors.outline),
                   labelStyle: TextStyle(
-                    color: selected ? const Color(0xFFFECACA) : Colors.white70,
-                    fontWeight: FontWeight.w600,
+                    color: selected
+                        ? (isDark ? const Color(0xFFFECACA) : const Color(0xFFB91C1C))
+                        : colors.onSurface,
+                    fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                   onSelected: _isSubmitting
@@ -284,19 +297,25 @@ class _IncidentScreenState extends State<IncidentScreen> {
               controller: _descController,
               maxLines: 3,
               maxLength: 500,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: colors.onSurface, fontSize: 15),
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 labelText: 'Detalle (puedes editarlo)',
-                labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                labelStyle: TextStyle(color: muted),
                 filled: true,
-                fillColor: const Color(0xFF111827),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                fillColor: colors.surface,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: colors.outline),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: colors.primary, width: 1.6),
+                ),
                 alignLabelWithHint: true,
               ),
             ),
             const SizedBox(height: 12),
-            // Único control para la foto (sin botón duplicado)
             InkWell(
               onTap: _isSubmitting ? null : _mostrarOpcionesFoto,
               borderRadius: BorderRadius.circular(16),
@@ -304,25 +323,25 @@ class _IncidentScreenState extends State<IncidentScreen> {
                 height: 190,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                  border: Border.all(color: colors.outline),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: _imageBytes == null
-                    ? const Column(
+                    ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_a_photo_rounded, size: 40, color: Color(0xFF10B981)),
-                          SizedBox(height: 10),
+                          Icon(Icons.add_a_photo_rounded, size: 40, color: colors.primary),
+                          const SizedBox(height: 10),
                           Text(
                             'Agregar foto (opcional)',
-                            style: TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w700),
+                            style: TextStyle(color: colors.onSurface, fontSize: 14.5, fontWeight: FontWeight.w700),
                           ),
-                          SizedBox(height: 3),
+                          const SizedBox(height: 3),
                           Text(
                             'Toca para usar cámara o galería',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                            style: TextStyle(color: muted, fontSize: 12.5),
                           ),
                         ],
                       )
@@ -336,7 +355,7 @@ class _IncidentScreenState extends State<IncidentScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.7),
+                                color: Colors.black.withValues(alpha: 0.72),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: const Row(
@@ -344,7 +363,10 @@ class _IncidentScreenState extends State<IncidentScreen> {
                                 children: [
                                   Icon(Icons.edit, size: 14, color: Colors.white),
                                   SizedBox(width: 5),
-                                  Text('Cambiar foto', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                                  Text(
+                                    'Cambiar foto',
+                                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
                                 ],
                               ),
                             ),
@@ -370,7 +392,7 @@ class _IncidentScreenState extends State<IncidentScreen> {
                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444),
+                  backgroundColor: const Color(0xFFDC2626),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

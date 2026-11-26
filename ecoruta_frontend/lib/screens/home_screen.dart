@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import 'route_active_screen.dart';
 
@@ -30,13 +31,18 @@ class _HomeScreenState extends State<HomeScreen> {
       _apiService.getGamificacion(),
       _apiService.getMisJornadas(),
     ]);
-    if (mounted) {
-      setState(() {
-        _gamificacion = results[0] as Map<String, dynamic>?;
-        _jornadas = results[1] as List<dynamic>;
-        _isLoading = false;
-      });
+    if (!mounted) return;
+    if (_apiService.sessionExpired) {
+      await context.read<AuthProvider>().logout(
+            notice: 'Tu sesión venció. Inicia sesión nuevamente.',
+          );
+      return;
     }
+    setState(() {
+      _gamificacion = results[0] as Map<String, dynamic>?;
+      _jornadas = results[1] as List<dynamic>;
+      _isLoading = false;
+    });
   }
 
   Future<void> _abrirJornada(Map<String, dynamic> jornada) async {
@@ -47,11 +53,18 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() => _startingJornadaId = null);
 
+    if (_apiService.sessionExpired) {
+      await context.read<AuthProvider>().logout(
+            notice: 'Tu sesión venció. Inicia sesión nuevamente.',
+          );
+      return;
+    }
+
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('No se pudo iniciar la ruta. Revisa tu conexión e intenta de nuevo.'),
-          backgroundColor: Colors.redAccent.shade700,
+          backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -64,10 +77,15 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => RouteActiveScreen(
           jornadaId: jornadaId,
           rutaNombre: (jornada['ruta_nombre'] ?? 'Ruta #$jornadaId').toString(),
+          rutaZona: (jornada['ruta_zona'] ?? '').toString(),
+          rutaDescripcion: (jornada['ruta_descripcion'] ?? '').toString(),
           vehiculoPlaca: (jornada['vehiculo_placa'] ?? '').toString(),
           vehiculoModelo: (jornada['vehiculo_modelo'] ?? '').toString(),
           distanciaInicialKm: (jornada['distancia_real_km'] is num)
               ? (jornada['distancia_real_km'] as num).toDouble()
+              : 0.0,
+          distanciaEstimadaKm: (jornada['distancia_estimada_km'] is num)
+              ? (jornada['distancia_estimada_km'] as num).toDouble()
               : 0.0,
         ),
       ),
@@ -79,21 +97,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final salir = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('¿Cerrar sesión?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text(
-          'Tendrás que ingresar tu usuario y contraseña la próxima vez.',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
-        ),
+        title: const Text('¿Cerrar sesión?', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Tendrás que ingresar tu usuario y contraseña la próxima vez.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white60)),
+            child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Salir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('Salir', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -105,16 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final auth = context.read<AuthProvider>();
+    final themeProvider = context.read<ThemeProvider>();
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final choferNombre = (_gamificacion?['chofer'] ?? 'Chofer').toString();
     final nivel = (_gamificacion?['nivel'] ?? '').toString();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF090D16),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -126,49 +143,47 @@ class _HomeScreenState extends State<HomeScreen> {
             if (nivel.isNotEmpty)
               Text(
                 nivel,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF34D399), fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 12, color: colors.primary, fontWeight: FontWeight.w700),
               ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            onPressed: themeProvider.toggleTheme,
+            tooltip: isDark ? 'Modo día' : 'Modo noche',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _isLoading ? null : _loadData,
             tooltip: 'Actualizar',
           ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Color(0xFFFCA5A5)),
+            icon: Icon(Icons.logout_rounded, color: colors.error),
             onPressed: () => _confirmLogout(auth),
             tooltip: 'Cerrar sesión',
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
+          ? Center(child: CircularProgressIndicator(color: colors.primary))
           : RefreshIndicator(
               onRefresh: _loadData,
-              color: const Color(0xFF10B981),
+              color: colors.primary,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(18.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // 1. Protagonista: Tu ruta de hoy (con botón integrado, sin redundancias)
-                    _buildPrimaryJourneySection(),
-                    const SizedBox(height: 18),
-
-                    // 2. Otras rutas asignadas (solo si hay más de una)
+                    _buildPrimaryJourneySection(context),
+                    const SizedBox(height: 16),
                     if (_jornadas.length > 1) ...[
-                      _buildOtherJourneysSection(),
-                      const SizedBox(height: 18),
+                      _buildOtherJourneysSection(context),
+                      const SizedBox(height: 16),
                     ],
-
-                    // 3. Resumen compacto del chofer
-                    _buildCompactStatsRow(),
-
-                    // 4. Bonos e insignias (solo si existen)
-                    _buildIncentivesSection(),
+                    _buildCompactStatsRow(context),
+                    _buildIncentivesSection(context),
                   ],
                 ),
               ),
@@ -176,38 +191,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPrimaryJourneySection() {
+  Widget _buildPrimaryJourneySection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+
     if (_jornadas.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: colors.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.4 : 0.85)),
         ),
         child: Column(
           children: [
-            const Icon(Icons.route_rounded, size: 42, color: Color(0xFF475569)),
+            Icon(Icons.route_rounded, size: 42, color: muted),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Sin rutas asignadas ahora',
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800),
+              style: TextStyle(color: colors.onSurface, fontSize: 17, fontWeight: FontWeight.w800),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Desliza hacia abajo para actualizar cuando te asignen una salida.',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, height: 1.4),
+              style: TextStyle(color: muted, fontSize: 13.5, height: 1.4),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: _loadData,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Revisar de nuevo'),
+              label: const Text('Revisar de nuevo', style: TextStyle(fontWeight: FontWeight.w700)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF34D399),
-                side: const BorderSide(color: Color(0xFF10B981)),
+                foregroundColor: colors.primary,
+                side: BorderSide(color: colors.primary),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
@@ -224,23 +244,37 @@ class _HomeScreenState extends State<HomeScreen> {
     final modelo = (principal['vehiculo_modelo'] ?? '').toString();
     final rutaNombre = (principal['ruta_nombre'] ?? 'Ruta asignada').toString();
     final zona = (principal['ruta_zona'] ?? '').toString();
+    final descripcion = (principal['ruta_descripcion'] ?? '').toString().trim();
     final fecha = (principal['fecha'] ?? '').toString();
+    final distReal = (principal['distancia_real_km'] is num) ? (principal['distancia_real_km'] as num).toDouble() : 0.0;
+    final distEst = (principal['distancia_estimada_km'] is num) ? (principal['distancia_estimada_km'] as num).toDouble() : 0.0;
+    final progreso = (distEst > 0) ? (distReal / distEst).clamp(0.0, 1.0) : 0.0;
+
+    final badgeBg = esEnCurso
+        ? (isDark ? const Color(0x3310B981) : const Color(0xFFDCFCE7))
+        : (isDark ? const Color(0x33F59E0B) : const Color(0xFFFEF3C7));
+    final badgeFg = esEnCurso
+        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF15803D))
+        : (isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309));
+    final plateBg = isDark ? const Color(0x333B82F6) : const Color(0xFFDBEAFE);
+    final plateFg = isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8);
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: esEnCurso
-              ? const [Color(0xFF0F2922), Color(0xFF111827)]
-              : const [Color(0xFF172133), Color(0xFF111827)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: esEnCurso ? const Color(0xFF10B981) : const Color(0xFF334155),
-          width: esEnCurso ? 1.6 : 1,
+          color: esEnCurso ? colors.primary : colors.outline.withValues(alpha: isDark ? 0.5 : 0.9),
+          width: esEnCurso ? 2 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,70 +284,109 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: esEnCurso
-                      ? const Color(0xFF10B981).withValues(alpha: 0.2)
-                      : const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(999),
-                ),
+                decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(999)),
                 child: Text(
                   esEnCurso ? 'EN CURSO' : 'LISTA PARA SALIR',
-                  style: TextStyle(
-                    color: esEnCurso ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
+                  style: TextStyle(color: badgeFg, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.4),
                 ),
               ),
-              Text(fecha, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5)),
+              Text(fecha, style: TextStyle(color: muted, fontSize: 12.5, fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 14),
           Text(
             rutaNombre,
-            style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, height: 1.2),
+            style: TextStyle(color: colors.onSurface, fontSize: 21, fontWeight: FontWeight.w800, height: 1.2),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1D4ED8).withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(6),
-                ),
+                decoration: BoxDecoration(color: plateBg, borderRadius: BorderRadius.circular(6)),
                 child: Text(
                   placa,
-                  style: const TextStyle(
-                    color: Color(0xFF93C5FD),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12.5,
-                    fontFamily: 'monospace',
-                  ),
+                  style: TextStyle(color: plateFg, fontWeight: FontWeight.w800, fontSize: 12.5, fontFamily: 'monospace'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   zona.isNotEmpty ? '$modelo • $zona' : modelo,
-                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13.5),
+                  style: TextStyle(color: muted, fontSize: 13.5, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          if (descripcion.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colors.outline.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.location_on_outlined, size: 16, color: colors.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      descripcion,
+                      style: TextStyle(color: colors.onSurface.withValues(alpha: 0.85), fontSize: 12.5, height: 1.35),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (distEst > 0) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  esEnCurso ? 'Avance del recorrido' : 'Distancia estimada',
+                  style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  esEnCurso
+                      ? '${distReal.toStringAsFixed(1)} / ${distEst.toStringAsFixed(1)} km'
+                      : '${distEst.toStringAsFixed(1)} km',
+                  style: TextStyle(color: colors.onSurface, fontSize: 12.5, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+            if (esEnCurso) ...[
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progreso,
+                  minHeight: 7,
+                  backgroundColor: colors.surfaceContainerHighest,
+                  color: colors.primary,
+                ),
+              ),
+            ],
+          ],
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             height: 56,
             child: ElevatedButton.icon(
               onPressed: _startingJornadaId != null ? null : () => _abrirJornada(principal),
               icon: iniciando
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF052E16)),
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: colors.onPrimary),
                     )
                   : Icon(esEnCurso ? Icons.play_arrow_rounded : Icons.navigation_rounded, size: 24),
               label: Text(
@@ -321,8 +394,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: const Color(0xFF052E16),
+                backgroundColor: colors.primary,
+                foregroundColor: colors.onPrimary,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
@@ -333,14 +406,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildOtherJourneysSection() {
+  Widget _buildOtherJourneysSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     final extras = _jornadas.skip(1).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Otras rutas asignadas',
-          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w700),
+          style: TextStyle(color: muted, fontSize: 13, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         ...extras.map((raw) {
@@ -351,9 +429,9 @@ class _HomeScreenState extends State<HomeScreen> {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF111827),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.4 : 0.8)),
             ),
             child: Row(
               children: [
@@ -363,12 +441,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         (item['ruta_nombre'] ?? '').toString(),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14.5),
+                        style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700, fontSize: 14.5),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${item['vehiculo_placa'] ?? ''} • ${item['fecha'] ?? ''}',
-                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                        style: TextStyle(color: muted, fontSize: 12),
                       ),
                     ],
                   ),
@@ -377,7 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: _startingJornadaId != null ? null : () => _abrirJornada(item),
                   child: iniciando
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Iniciar', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.w800)),
+                      : Text('Iniciar', style: TextStyle(color: colors.primary, fontWeight: FontWeight.w800)),
                 ),
               ],
             ),
@@ -387,7 +465,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCompactStatsRow() {
+  Widget _buildCompactStatsRow(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final jornadas = _gamificacion?['jornadas_exitosas'] ?? 0;
     final kmRaw = _gamificacion?['km_recorridos_totales'];
     final km = (kmRaw is num) ? kmRaw.toDouble() : 0.0;
@@ -396,58 +477,65 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.4 : 0.85)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildMiniStat('$jornadas', 'Completadas'),
-          Container(width: 1, height: 30, color: Colors.white12),
-          _buildMiniStat('${km.toStringAsFixed(1)} km', 'Recorridos'),
-          Container(width: 1, height: 30, color: Colors.white12),
-          _buildMiniStat('$puntos', 'Puntos'),
+          _buildMiniStat(context, '$jornadas', 'Completadas'),
+          Container(width: 1, height: 30, color: theme.dividerColor),
+          _buildMiniStat(context, '${km.toStringAsFixed(1)} km', 'Recorridos'),
+          Container(width: 1, height: 30, color: theme.dividerColor),
+          _buildMiniStat(context, '$puntos', 'Puntos'),
         ],
       ),
     );
   }
 
-  Widget _buildMiniStat(String value, String label) {
+  Widget _buildMiniStat(BuildContext context, String value, String label) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     return Column(
       children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+        Text(value, style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 16)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+        Text(label, style: TextStyle(color: muted, fontSize: 11.5, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  Widget _buildIncentivesSection() {
+  Widget _buildIncentivesSection(BuildContext context) {
     final insignias = (_gamificacion?['insignias'] as List?) ?? [];
     if (insignias.isEmpty) return const SizedBox.shrink();
 
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+
     return Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Reconocimientos',
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w700),
+            style: TextStyle(color: muted, fontSize: 13, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           ...insignias.map((ins) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.4 : 0.85)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 24),
+                    const Icon(Icons.workspace_premium_rounded, color: Color(0xFFD97706), size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -455,11 +543,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             (ins['titulo'] ?? '').toString(),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5),
+                            style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700, fontSize: 13.5),
                           ),
                           Text(
                             (ins['descripcion'] ?? '').toString(),
-                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                            style: TextStyle(color: muted, fontSize: 11.5),
                           ),
                         ],
                       ),
@@ -467,7 +555,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (ins['bono_usd'] != null && (ins['bono_usd'] as num) > 0)
                       Text(
                         '+\$${ins['bono_usd']}',
-                        style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.w800, fontSize: 13.5),
+                        style: TextStyle(color: colors.primary, fontWeight: FontWeight.w800, fontSize: 13.5),
                       ),
                   ],
                 ),

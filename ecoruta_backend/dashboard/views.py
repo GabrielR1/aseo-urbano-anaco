@@ -30,7 +30,17 @@ from administracion.models import (
 from logistica.gamificacion import evaluar_y_actualizar_puntaje_chofer
 from logistica.models import Incidencia, Jornada, PuntoGeolocalizacion
 from logistica.services import serializar_camion, serializar_incidencia
+from security.models import Usuario
 from security.permissions import admin_required, es_administrador
+
+
+def _choferes_operativos():
+    """Devuelve únicamente perfiles de choferes reales (excluye administradores de oficina)."""
+    return (
+        Chofer.objects.select_related('usuario')
+        .filter(usuario__rol=Usuario.CHOFER, usuario__is_superuser=False)
+        .order_by('usuario__first_name', 'usuario__username')
+    )
 
 
 def _prefetch_puntos():
@@ -165,7 +175,7 @@ def dashboard_home(request):
 def rutas_gestion(request):
     rutas = Ruta.objects.all().order_by('nombre')
     vehiculos = Vehiculo.objects.all().order_by('placa')
-    choferes = Chofer.objects.select_related('usuario').all()
+    choferes = _choferes_operativos()
     hoy = django.utils.timezone.now().date()
     context = {
         'rutas': rutas,
@@ -186,11 +196,15 @@ def auditoria_listado(request):
 
 @admin_required
 def incentivos_listado(request):
-    choferes = Chofer.objects.select_related('usuario').all()
+    choferes = _choferes_operativos()
     for c in choferes:
         evaluar_y_actualizar_puntaje_chofer(c)
         
-    ranking = PuntajeChofer.objects.select_related('chofer', 'chofer__usuario').order_by('-puntos_totales')
+    ranking = (
+        PuntajeChofer.objects.select_related('chofer', 'chofer__usuario')
+        .filter(chofer__usuario__rol=Usuario.CHOFER, chofer__usuario__is_superuser=False)
+        .order_by('-puntos_totales')
+    )
     recent_incentivos = IncentivoChofer.objects.select_related('chofer', 'chofer__usuario').order_by('-otorgado_en')[:20]
     
     context = {
@@ -201,7 +215,7 @@ def incentivos_listado(request):
 
 @admin_required
 def conductores_gestion(request):
-    choferes = Chofer.objects.select_related('usuario').all()
+    choferes = _choferes_operativos()
     context = {
         'choferes': choferes
     }
@@ -212,7 +226,7 @@ def itinerario(request):
     jornadas = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').all().order_by('-fecha', '-id')
     rutas = Ruta.objects.all().order_by('nombre')
     vehiculos = Vehiculo.objects.all().order_by('placa')
-    choferes = Chofer.objects.select_related('usuario').all()
+    choferes = _choferes_operativos()
     hoy = django.utils.timezone.now().date()
     context = {
         'jornadas': jornadas,
@@ -240,7 +254,7 @@ def jornada_crear(request):
         vehiculo = Vehiculo.objects.filter(pk=_parse_entero(vehiculo_id)).first()
         ruta = Ruta.objects.filter(pk=_parse_entero(ruta_id)).first()
         chofer_pk = _parse_entero(chofer_id)
-        chofer = Chofer.objects.filter(pk=chofer_pk).first() if chofer_pk else Chofer.objects.first()
+        chofer = Chofer.objects.filter(pk=chofer_pk).first() if chofer_pk else _choferes_operativos().first()
 
         if not vehiculo or not ruta:
             messages.error(request, 'Debes seleccionar una ruta y un vehículo válidos.')
@@ -322,7 +336,7 @@ def mapa_monitoreo(request):
         'total_incidencias': len(incidencias),
         'rutas': Ruta.objects.all().order_by('nombre'),
         'vehiculos': Vehiculo.objects.all().order_by('placa'),
-        'choferes': Chofer.objects.select_related('usuario').all(),
+        'choferes': _choferes_operativos(),
         'hoy': django.utils.timezone.localtime(django.utils.timezone.now()).date(),
     }
     return render(request, 'dashboard/mapa.html', context)
@@ -349,7 +363,7 @@ def chofer_gps_movil(request):
         'es_admin': es_admin,
         'rutas': Ruta.objects.all().order_by('nombre'),
         'vehiculos': Vehiculo.objects.filter(estado='activo').order_by('placa'),
-        'choferes': Chofer.objects.select_related('usuario').all(),
+        'choferes': _choferes_operativos(),
         'hoy': django.utils.timezone.localtime(django.utils.timezone.now()).date(),
     }
     return render(request, 'dashboard/chofer_gps.html', context)

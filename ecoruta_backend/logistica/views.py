@@ -266,6 +266,8 @@ def mis_jornadas(request):
                 'vehiculo_modelo': f"{j.vehiculo.marca} {j.vehiculo.modelo}",
                 'ruta_nombre': j.ruta.nombre,
                 'ruta_zona': j.ruta.zona or 'Municipio Anaco',
+                'ruta_descripcion': j.ruta.descripcion or '',
+                'distancia_estimada_km': float(j.ruta.distancia_estimada_km or 0),
                 'chofer': j.chofer.usuario.get_full_name() or j.chofer.usuario.username,
                 'distancia_real_km': j.calcular_distancia_real_km(puntos=puntos),
                 'puntos_count': len(puntos),

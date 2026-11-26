@@ -2,24 +2,33 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import 'incident_screen.dart';
 
 class RouteActiveScreen extends StatefulWidget {
   final int jornadaId;
   final String? rutaNombre;
+  final String? rutaZona;
+  final String? rutaDescripcion;
   final String? vehiculoPlaca;
   final String? vehiculoModelo;
   final double distanciaInicialKm;
+  final double distanciaEstimadaKm;
 
   const RouteActiveScreen({
     super.key,
     required this.jornadaId,
     this.rutaNombre,
+    this.rutaZona,
+    this.rutaDescripcion,
     this.vehiculoPlaca,
     this.vehiculoModelo,
     this.distanciaInicialKm = 0.0,
+    this.distanciaEstimadaKm = 0.0,
   });
 
   @override
@@ -28,13 +37,14 @@ class RouteActiveScreen extends StatefulWidget {
 
 class _RouteActiveScreenState extends State<RouteActiveScreen> {
   final ApiService _apiService = ApiService();
-  Timer? _gpsTimer;
+  StreamSubscription<Position>? _positionSub;
   Timer? _elapsedTimer;
 
   Position? _currentPosition;
   Position? _lastRecordedPosition;
+  DateTime? _lastSentAt;
   bool _isTracking = true;
-  bool _capturando = false;
+  bool _sending = false;
   int _secondsElapsed = 0;
   double _totalDistanceKm = 0.0;
   String? _gpsWarning;
@@ -61,7 +71,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   }
 
   void _startElapsedTimer() {
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() => _secondsElapsed++);
       }
@@ -114,11 +124,40 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         _canOpenSettings = false;
       });
 
-      await _captureAndSendGps();
-      _gpsTimer?.cancel();
-      _gpsTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-        await _captureAndSendGps();
-      });
+      await _positionSub?.cancel();
+
+      // Captura inicial inmediata para no esperar al primer movimiento.
+      try {
+        final initial = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 15),
+          ),
+        );
+        await _onPositionUpdate(initial, forceSend: true);
+      } catch (e) {
+        debugPrint('Lectura inicial GPS pendiente: $e');
+      }
+
+      if (!mounted || !_isTracking) return;
+
+      // Stream continuo en vivo: actualiza velocímetro y km con suavidad y menos batería.
+      _positionSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen(
+        (pos) => _onPositionUpdate(pos),
+        onError: (err) {
+          debugPrint('Error en stream GPS: $err');
+          if (mounted) {
+            setState(() {
+              _gpsWarning = 'Buscando mejor señal satelital...';
+            });
+          }
+        },
+      );
     } catch (e) {
       debugPrint('Error iniciando el rastreo GPS: $e');
       if (mounted) {
@@ -130,39 +169,40 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     }
   }
 
-  Future<void> _captureAndSendGps() async {
-    if (!_isTracking || _capturando) return;
-    _capturando = true;
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
+  Future<void> _onPositionUpdate(Position position, {bool forceSend = false}) async {
+    if (!mounted || !_isTracking) return;
+
+    double movedMeters = 0.0;
+    if (_lastRecordedPosition != null) {
+      movedMeters = Geolocator.distanceBetween(
+        _lastRecordedPosition!.latitude,
+        _lastRecordedPosition!.longitude,
+        position.latitude,
+        position.longitude,
       );
+    }
 
-      double deltaKm = 0.0;
-      if (_lastRecordedPosition != null) {
-        final meters = Geolocator.distanceBetween(
-          _lastRecordedPosition!.latitude,
-          _lastRecordedPosition!.longitude,
-          position.latitude,
-          position.longitude,
-        );
-        if (meters >= 5 && meters < 5000) {
-          deltaKm = meters / 1000.0;
-        }
-      }
-      _lastRecordedPosition = position;
+    double deltaKm = 0.0;
+    if (_lastRecordedPosition != null && movedMeters >= 5 && movedMeters < 5000) {
+      deltaKm = movedMeters / 1000.0;
+    }
 
-      if (mounted) {
-        setState(() {
-          _currentPosition = position;
-          _totalDistanceKm += deltaKm;
-          _gpsWarning = null;
-        });
-      }
+    setState(() {
+      _currentPosition = position;
+      _totalDistanceKm += deltaKm;
+      _gpsWarning = null;
+    });
 
+    final now = DateTime.now();
+    final elapsedSinceSend = _lastSentAt == null ? 999 : now.difference(_lastSentAt!).inSeconds;
+    final shouldSend = forceSend || _lastSentAt == null || elapsedSinceSend >= 8 || movedMeters >= 15;
+    if (!shouldSend || _sending) return;
+
+    _lastRecordedPosition = position;
+    _lastSentAt = now;
+    _sending = true;
+
+    try {
       final speedKmh = (position.speed * 3.6).clamp(0.0, 160.0).toDouble();
       final success = await _apiService.sendLocation(
         widget.jornadaId,
@@ -172,15 +212,23 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         accuracy: position.accuracy,
       );
 
+      if (_apiService.sessionExpired && mounted) {
+        await _positionSub?.cancel();
+        _elapsedTimer?.cancel();
+        if (!mounted) return;
+        await context.read<AuthProvider>().logout(
+              notice: 'Tu sesión venció. Inicia sesión nuevamente.',
+            );
+        return;
+      }
+
       if (success) {
         await _vaciarColaOffline();
       } else {
         _encolarPunto(position, speedKmh);
       }
-    } catch (e) {
-      debugPrint('Error obteniendo coordenadas GPS: $e');
     } finally {
-      _capturando = false;
+      _sending = false;
     }
   }
 
@@ -220,20 +268,18 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     final salir = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('¿Salir de la pantalla?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('¿Salir de la pantalla?', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text(
           'Tu ruta seguirá abierta en el servidor, pero el GPS dejará de transmitirse hasta que vuelvas a entrar.',
-          style: TextStyle(color: Colors.white70, fontSize: 13.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Quedarme', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold)),
+            child: const Text('Quedarme', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Salir', style: TextStyle(color: Colors.white60)),
+            child: const Text('Salir'),
           ),
         ],
       ),
@@ -243,13 +289,19 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
 
   @override
   void dispose() {
-    _gpsTimer?.cancel();
+    _positionSub?.cancel();
     _elapsedTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+    final themeProvider = context.read<ThemeProvider>();
+
     final speed = _currentPosition != null
         ? (_currentPosition!.speed * 3.6).clamp(0.0, 160.0).round().toString()
         : '0';
@@ -260,20 +312,27 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
       if (widget.vehiculoPlaca != null && widget.vehiculoPlaca!.isNotEmpty) widget.vehiculoPlaca!,
       if (widget.vehiculoModelo != null && widget.vehiculoModelo!.isNotEmpty) widget.vehiculoModelo!,
     ].join(' • ');
+    final detalleSectores = (widget.rutaDescripcion != null && widget.rutaDescripcion!.trim().isNotEmpty)
+        ? widget.rutaDescripcion!.trim()
+        : (widget.rutaZona ?? '').trim();
+
+    final hasEstimado = widget.distanciaEstimadaKm > 0;
+    final progreso = hasEstimado ? (_totalDistanceKm / widget.distanciaEstimadaKm).clamp(0.0, 1.0) : 0.0;
+    final porcentaje = (progreso * 100).round();
 
     final Color statusColor;
     final String statusText;
     if (!_isTracking) {
-      statusColor = const Color(0xFFEF4444);
+      statusColor = const Color(0xFFDC2626);
       statusText = 'GPS detenido';
     } else if (_offlinePointsQueue.isNotEmpty) {
-      statusColor = const Color(0xFFF59E0B);
+      statusColor = const Color(0xFFD97706);
       statusText = 'Sin señal • ${_offlinePointsQueue.length} por enviar';
     } else if (_currentPosition == null) {
-      statusColor = const Color(0xFF38BDF8);
+      statusColor = const Color(0xFF2563EB);
       statusText = 'Buscando señal GPS...';
     } else {
-      statusColor = const Color(0xFF10B981);
+      statusColor = colors.primary;
       statusText = 'En ruta • GPS conectado';
     }
 
@@ -287,11 +346,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF090D16),
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0F172A),
-          foregroundColor: Colors.white,
-          elevation: 0,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -303,11 +358,18 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
               if (subtituloVehiculo.isNotEmpty)
                 Text(
                   subtituloVehiculo,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  style: TextStyle(fontSize: 12, color: muted),
                   overflow: TextOverflow.ellipsis,
                 ),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+              onPressed: themeProvider.toggleTheme,
+              tooltip: isDark ? 'Modo día' : 'Modo noche',
+            ),
+          ],
         ),
         body: SafeArea(
           child: Padding(
@@ -315,13 +377,13 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Indicador único de estado GPS (sin duplicados)
+                // Indicador único de estado GPS
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.45)),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.55), width: 1.4),
                   ),
                   child: Row(
                     children: [
@@ -334,7 +396,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                       Expanded(
                         child: Text(
                           statusText,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                          style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700, fontSize: 14),
                         ),
                       ),
                       if (!_isTracking)
@@ -347,7 +409,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                           ),
                           child: Text(
                             _canOpenSettings ? 'Ajustes' : 'Reintentar',
-                            style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.w800),
+                            style: TextStyle(color: colors.primary, fontWeight: FontWeight.w800),
                           ),
                         ),
                     ],
@@ -359,74 +421,133 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0x22F59E0B),
+                      color: isDark ? const Color(0x22F59E0B) : const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0x66F59E0B)),
+                      border: Border.all(color: const Color(0xFFD97706)),
                     ),
                     child: Text(
                       _gpsWarning!,
-                      style: const TextStyle(color: Color(0xFFFCD34D), fontSize: 12.5),
+                      style: TextStyle(
+                        color: isDark ? const Color(0xFFFCD34D) : const Color(0xFF92400E),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
-                // Panel principal limpio con solo 3 datos útiles para el chofer
+                // Panel de telemetría con alto contraste + barra de progreso
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF172133), Color(0xFF0F172A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0x3310B981)),
+                    border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.5 : 0.9)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
                       Text(
                         speed,
-                        style: const TextStyle(
-                          color: Color(0xFF34D399),
+                        style: TextStyle(
+                          color: colors.primary,
                           fontSize: 64,
                           fontWeight: FontWeight.w900,
                           height: 1.0,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Km/h',
-                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: muted, fontSize: 14, fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(height: 24),
-                      const Divider(color: Colors.white12, height: 1),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 20),
+                      Divider(color: theme.dividerColor, height: 1),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
-                            child: _buildMetric('${_totalDistanceKm.toStringAsFixed(1)} km', 'Recorridos'),
+                            child: _buildMetric(context, '${_totalDistanceKm.toStringAsFixed(1)} km', 'Recorridos'),
                           ),
-                          Container(width: 1, height: 34, color: Colors.white12),
+                          Container(width: 1, height: 34, color: theme.dividerColor),
                           Expanded(
-                            child: _buildMetric(_formatElapsedTime(_secondsElapsed), 'Tiempo en ruta'),
+                            child: _buildMetric(context, _formatElapsedTime(_secondsElapsed), 'Tiempo en ruta'),
                           ),
                         ],
                       ),
+                      if (hasEstimado) ...[
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Progreso estimado',
+                              style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '${_totalDistanceKm.toStringAsFixed(1)} / ${widget.distanciaEstimadaKm.toStringAsFixed(1)} km ($porcentaje%)',
+                              style: TextStyle(color: colors.onSurface, fontSize: 12.5, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: progreso,
+                            minHeight: 8,
+                            backgroundColor: colors.surfaceContainerHighest,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
 
+                if (detalleSectores.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: colors.outline.withValues(alpha: isDark ? 0.4 : 0.85)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.map_outlined, size: 18, color: colors.secondary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            detalleSectores,
+                            style: TextStyle(color: colors.onSurface.withValues(alpha: 0.85), fontSize: 13, height: 1.35),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const Spacer(),
 
-                // Botones táctiles grandes y claros
                 ElevatedButton.icon(
                   icon: const Icon(Icons.warning_amber_rounded, size: 24),
                   label: const Text('Reportar novedad', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 58),
-                    backgroundColor: const Color(0xFFEF4444),
+                    backgroundColor: const Color(0xFFDC2626),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -440,14 +561,15 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  icon: const Icon(Icons.flag_rounded, size: 22, color: Colors.white70),
-                  label: const Text(
+                  icon: Icon(Icons.flag_rounded, size: 22, color: colors.onSurface),
+                  label: Text(
                     'Finalizar ruta',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: colors.onSurface),
                   ),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 58),
-                    side: const BorderSide(color: Color(0xFF334155), width: 1.5),
+                    side: BorderSide(color: colors.outline, width: 1.6),
+                    backgroundColor: colors.surface,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: _confirmFinishJourney,
@@ -460,43 +582,39 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     );
   }
 
-  Widget _buildMetric(String value, String label) {
+  Widget _buildMetric(BuildContext context, String value, String label) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     return Column(
       children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20)),
+        Text(value, style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 20)),
         const SizedBox(height: 3),
-        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+        Text(label, style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
   void _confirmFinishJourney() {
     final tonController = TextEditingController();
+    final colors = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('¿Terminaste la ruta?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('¿Terminaste la ruta?', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Se guardará el recorrido completado y se detendrá el GPS.',
-              style: TextStyle(color: Colors.white70, fontSize: 13.5),
-            ),
+            const Text('Se guardará el recorrido completado y se detendrá el GPS.'),
             const SizedBox(height: 14),
             TextField(
               controller: tonController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: const TextStyle(fontSize: 16),
               decoration: InputDecoration(
                 labelText: 'Toneladas recolectadas (opcional)',
-                labelStyle: const TextStyle(color: Colors.white60, fontSize: 13),
                 hintText: 'Ej. 4.5',
-                hintStyle: const TextStyle(color: Colors.white24),
                 filled: true,
-                fillColor: const Color(0xFF0F172A),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
@@ -505,10 +623,13 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Seguir', style: TextStyle(color: Colors.white60)),
+            child: const Text('Seguir'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onPrimary,
+            ),
             onPressed: () async {
               final toneladas = double.tryParse(tonController.text.trim().replaceAll(',', '.'));
               Navigator.pop(ctx);
@@ -518,23 +639,32 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
               }
               final ok = await _apiService.finalizarJornada(widget.jornadaId, toneladas: toneladas);
               if (!mounted) return;
+              if (_apiService.sessionExpired) {
+                await _positionSub?.cancel();
+                _elapsedTimer?.cancel();
+                if (!mounted) return;
+                await context.read<AuthProvider>().logout(
+                      notice: 'Tu sesión venció. Inicia sesión nuevamente.',
+                    );
+                return;
+              }
               if (!ok) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('No se pudo finalizar la ruta. Revisa tu conexión e intenta de nuevo.'),
-                    backgroundColor: Colors.redAccent,
+                  SnackBar(
+                    content: const Text('No se pudo finalizar la ruta. Revisa tu conexión e intenta de nuevo.'),
+                    backgroundColor: Colors.red.shade700,
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
                 return;
               }
-              _gpsTimer?.cancel();
+              await _positionSub?.cancel();
               _elapsedTimer?.cancel();
               _isTracking = false;
               await _apiService.saveOfflineQueue(_offlinePointsQueue);
               if (mounted) Navigator.pop(context);
             },
-            child: const Text('Finalizar', style: TextStyle(color: Color(0xFF052E16), fontWeight: FontWeight.w800)),
+            child: const Text('Finalizar', style: TextStyle(fontWeight: FontWeight.w800)),
           ),
         ],
       ),
