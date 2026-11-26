@@ -152,25 +152,25 @@
                 {% csrf_token %}
                 <div style="margin-bottom: 14px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-muted); font-size: 13px;">Usuario Registrado (No editable):</label>
-                    <input type="text" class="form-input" value="${username}" disabled style="opacity: 0.6; cursor: not-allowed;">
+                    <input type="text" class="form-input" value="${escapeHtml(username)}" disabled style="opacity: 0.6; cursor: not-allowed;">
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre:</label>
-                        <input type="text" name="first_name" class="form-input" value="${firstName}">
+                        <input type="text" name="first_name" class="form-input" value="${escapeHtml(firstName)}">
                     </div>
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Apellido:</label>
-                        <input type="text" name="last_name" class="form-input" value="${lastName}">
+                        <input type="text" name="last_name" class="form-input" value="${escapeHtml(lastName)}">
                     </div>
                 </div>
                 <div style="margin-bottom: 14px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Número de Licencia:</label>
-                    <input type="text" name="licencia" class="form-input" value="${licencia}" required>
+                    <input type="text" name="licencia" class="form-input" value="${escapeHtml(licencia)}" required>
                 </div>
                 <div style="margin-bottom: 24px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Teléfono:</label>
-                    <input type="text" name="telefono" class="form-input" value="${telefono}">
+                    <input type="text" name="telefono" class="form-input" value="${escapeHtml(telefono)}">
                 </div>
                 <button type="submit" class="btn-modern" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-size: 15px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
                     <i class="fa-solid fa-pen-to-square"></i> Actualizar Ficha de Conductor
@@ -190,7 +190,7 @@
                 </div>
                 <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 800;">¿Eliminar este conductor?</h4>
                 <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5;">
-                    Estás a punto de dar de baja al chofer <strong style="color: #dc2626;">${username}</strong>.<br>
+                    Estás a punto de dar de baja al chofer <strong style="color: #dc2626;">${escapeHtml(username)}</strong>.<br>
                     Se removerá también su cuenta de acceso y su histórico vinculado.
                 </p>
                 <div style="display: flex; gap: 12px;">

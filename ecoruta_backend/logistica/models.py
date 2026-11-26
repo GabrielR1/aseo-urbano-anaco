@@ -42,19 +42,45 @@ class Jornada(models.Model):
         verbose_name = "Recorrido / Jornada Asignada"
         verbose_name_plural = "Recorridos Asignados"
 
-    def calcular_distancia_real_km(self):
+    def calcular_distancia_real_km(self, puntos=None):
         """
         Calcula la distancia real recorrida (en Km) a partir de la traza GPS registrada
         en PuntoGeolocalizacion usando la fórmula de Haversine.
         Filtra micro-derivas menores a 5 metros y saltos anómalos de GPS.
+
+        ``puntos`` permite reutilizar una lista ya prefetcheada (objetos del modelo o
+        tuplas ``(latitud, longitud, timestamp)``) para evitar consultas N+1.
         """
-        puntos = list(self.puntos.order_by('timestamp', 'id').values_list('latitud', 'longitud', 'timestamp'))
+        cache_distancia = getattr(self, "_distancia_real_km_cache", None)
+        if cache_distancia is not None:
+            return cache_distancia
+
+        if puntos is None:
+            cache = getattr(self, "_prefetched_objects_cache", {}) or {}
+            if "puntos" in cache:
+                puntos = cache["puntos"]
+            else:
+                puntos = list(
+                    self.puntos.order_by("timestamp", "id").values_list(
+                        "latitud", "longitud", "timestamp"
+                    )
+                )
+        else:
+            puntos = list(puntos)
+
         if len(puntos) < 2:
+            self._distancia_real_km_cache = 0.0
             return 0.0
 
+        def _tuple(punto):
+            if isinstance(punto, (tuple, list)):
+                return punto[0], punto[1], punto[2]
+            return punto.latitud, punto.longitud, punto.timestamp
+
         distancia_total = 0.0
-        prev_lat, prev_lng, prev_ts = puntos[0]
-        for lat, lng, ts in puntos[1:]:
+        prev_lat, prev_lng, prev_ts = _tuple(puntos[0])
+        for punto in puntos[1:]:
+            lat, lng, ts = _tuple(punto)
             tramo_km = haversine_km(prev_lat, prev_lng, lat, lng)
             # Ignorar micro-ruido estacionario (< 5 metros)
             if tramo_km < 0.005:
@@ -66,7 +92,9 @@ class Jornada(models.Model):
             distancia_total += tramo_km
             prev_lat, prev_lng, prev_ts = lat, lng, ts
 
-        return round(distancia_total, 2)
+        resultado = round(distancia_total, 2)
+        self._distancia_real_km_cache = resultado
+        return resultado
 
     def __str__(self):
         return f"Jornada {self.id} - {self.ruta.nombre} ({self.fecha})"
@@ -77,7 +105,7 @@ class PuntoGeolocalizacion(models.Model):
     longitud = models.DecimalField(max_digits=9, decimal_places=6, verbose_name="Longitud")
     precision_metros = models.FloatField(null=True, blank=True, verbose_name="Precisión (Metros)")
     velocidad_kmh = models.FloatField(null=True, blank=True, verbose_name="Velocidad (Km/h)")
-    timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Sello de Tiempo")
+    timestamp = models.DateTimeField(default=django.utils.timezone.now, db_index=True, verbose_name="Sello de Tiempo")
 
     class Meta:
         verbose_name = "Punto de Monitoreo GPS"

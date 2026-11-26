@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ecoruta Mobile</string>
+	<string>EcoRuta Chofer</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,6 +26,17 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>EcoRuta necesita tu ubicación para transmitir el recorrido de la unidad de recolección y reportar incidencias.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>EcoRuta usa la cámara para adjuntar fotos de evidencia al reportar una incidencia en ruta.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>EcoRuta puede acceder a tus fotos para adjuntar evidencia de una incidencia.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,9 +1,17 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+import logging
+
 from django.contrib import messages
-from .models import Ruta, Vehiculo, Chofer, RegistroAuditoria
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_POST
+
 from security.models import Usuario
+from security.permissions import admin_required
+
 from .forms import RutaForm, VehiculoForm
+from .models import Chofer, RegistroAuditoria, Ruta, Vehiculo
+
+logger = logging.getLogger(__name__)
+
 
 def registrar_auditoria(usuario, accion, tabla, detalles):
     try:
@@ -11,12 +19,13 @@ def registrar_auditoria(usuario, accion, tabla, detalles):
             usuario=usuario if usuario and usuario.is_authenticated else None,
             accion=accion,
             tabla_afectada=tabla,
-            detalles=detalles
+            detalles=detalles,
         )
-    except Exception as e:
-        pass
+    except Exception:  # la auditoría nunca debe romper la operación principal
+        logger.exception("No se pudo registrar la auditoría: %s / %s", accion, tabla)
 
-@login_required
+
+@admin_required
 def ruta_crear(request):
     if request.method == 'POST':
         form = RutaForm(request.POST)
@@ -28,7 +37,8 @@ def ruta_crear(request):
             messages.error(request, 'Error al guardar la ruta. Por favor verifica los datos.')
     return redirect('dashboard_rutas')
 
-@login_required
+
+@admin_required
 def ruta_editar(request, pk):
     ruta = get_object_or_404(Ruta, pk=pk)
     if request.method == 'POST':
@@ -38,20 +48,28 @@ def ruta_editar(request, pk):
             registrar_auditoria(request.user, 'MODIFICAR', 'Ruta Ecológica', f'Se modificaron los datos de la ruta "{ruta.nombre}"')
             messages.success(request, f'¡Ruta "{ruta.nombre}" modificada correctamente!')
         else:
-            messages.error(request, 'Error al modificar la ruta.')
+            messages.error(request, 'Error al modificar la ruta. Revisa los datos ingresados.')
     return redirect('dashboard_rutas')
 
-@login_required
+
+@admin_required
+@require_POST
 def ruta_eliminar(request, pk):
     ruta = get_object_or_404(Ruta, pk=pk)
-    if request.method == 'POST':
-        nombre_ruta = ruta.nombre
-        ruta.delete()
-        registrar_auditoria(request.user, 'ELIMINAR', 'Ruta Ecológica', f'Se eliminó la ruta "{nombre_ruta}"')
-        messages.success(request, f'Ruta "{nombre_ruta}" eliminada con éxito.')
+    if ruta.jornada_set.exists():
+        messages.error(
+            request,
+            f'No se puede eliminar la ruta "{ruta.nombre}" porque tiene jornadas asociadas.',
+        )
+        return redirect('dashboard_rutas')
+    nombre_ruta = ruta.nombre
+    ruta.delete()
+    registrar_auditoria(request.user, 'ELIMINAR', 'Ruta Ecológica', f'Se eliminó la ruta "{nombre_ruta}"')
+    messages.success(request, f'Ruta "{nombre_ruta}" eliminada con éxito.')
     return redirect('dashboard_rutas')
 
-@login_required
+
+@admin_required
 def vehiculo_crear(request):
     if request.method == 'POST':
         form = VehiculoForm(request.POST)
@@ -60,10 +78,11 @@ def vehiculo_crear(request):
             registrar_auditoria(request.user, 'CREAR', 'Vehículo de Flota', f'Se registró el vehículo placa "{vehiculo.placa}" ({vehiculo.marca})')
             messages.success(request, '¡Vehículo registrado exitosamente!')
         else:
-            messages.error(request, 'Error al registrar el vehículo.')
+            messages.error(request, 'Error al registrar el vehículo. Verifica la placa y los datos.')
     return redirect('dashboard_recursos')
 
-@login_required
+
+@admin_required
 def vehiculo_editar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     if request.method == 'POST':
@@ -73,28 +92,36 @@ def vehiculo_editar(request, pk):
             registrar_auditoria(request.user, 'MODIFICAR', 'Vehículo de Flota', f'Se actualizaron los datos del vehículo "{vehiculo.placa}"')
             messages.success(request, f'¡Vehículo "{vehiculo.placa}" actualizado correctamente!')
         else:
-            messages.error(request, 'Error al actualizar el vehículo.')
+            messages.error(request, 'Error al actualizar el vehículo. Revisa los datos ingresados.')
     return redirect('dashboard_recursos')
 
-@login_required
+
+@admin_required
+@require_POST
 def vehiculo_eliminar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
-    if request.method == 'POST':
-        placa = vehiculo.placa
-        vehiculo.delete()
-        registrar_auditoria(request.user, 'ELIMINAR', 'Vehículo de Flota', f'Se eliminó el vehículo placa "{placa}"')
-        messages.success(request, f'Vehículo "{placa}" eliminado con éxito.')
+    if vehiculo.jornada_set.exists():
+        messages.error(
+            request,
+            f'No se puede eliminar la unidad "{vehiculo.placa}" porque tiene jornadas asociadas.',
+        )
+        return redirect('dashboard_recursos')
+    placa = vehiculo.placa
+    vehiculo.delete()
+    registrar_auditoria(request.user, 'ELIMINAR', 'Vehículo de Flota', f'Se eliminó el vehículo placa "{placa}"')
+    messages.success(request, f'Vehículo "{placa}" eliminado con éxito.')
     return redirect('dashboard_recursos')
 
-@login_required
+
+@admin_required
 def chofer_crear(request):
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password', 'chofer123')
-        first_name = request.POST.get('first_name', '')
-        last_name = request.POST.get('last_name', '')
-        licencia = request.POST.get('licencia')
-        telefono = request.POST.get('telefono', '')
+        username = (request.POST.get('username') or '').strip()
+        password = request.POST.get('password') or 'chofer123'
+        first_name = (request.POST.get('first_name') or '').strip()
+        last_name = (request.POST.get('last_name') or '').strip()
+        licencia = (request.POST.get('licencia') or '').strip()
+        telefono = (request.POST.get('telefono') or '').strip()
 
         if username and licencia:
             if Usuario.objects.filter(username=username).exists():
@@ -107,7 +134,7 @@ def chofer_crear(request):
                     password=password,
                     first_name=first_name,
                     last_name=last_name,
-                    rol=Usuario.CHOFER
+                    rol=Usuario.CHOFER,
                 )
                 Chofer.objects.create(usuario=user, licencia=licencia, telefono=telefono)
                 registrar_auditoria(request.user, 'CREAR', 'Conductor / Chofer', f'Se creó el perfil de chofer para el usuario "{username}"')
@@ -116,36 +143,56 @@ def chofer_crear(request):
             messages.error(request, 'Por favor completa los campos requeridos de usuario y licencia.')
     return redirect('dashboard_conductores')
 
-@login_required
+
+@admin_required
 def chofer_editar(request, pk):
     chofer = get_object_or_404(Chofer, pk=pk)
     if request.method == 'POST':
-        licencia = request.POST.get('licencia')
-        telefono = request.POST.get('telefono', '')
-        first_name = request.POST.get('first_name', '')
-        last_name = request.POST.get('last_name', '')
+        licencia = (request.POST.get('licencia') or '').strip()
+        telefono = (request.POST.get('telefono') or '').strip()
+        first_name = (request.POST.get('first_name') or '').strip()
+        last_name = (request.POST.get('last_name') or '').strip()
+
+        if not licencia:
+            messages.error(request, 'La licencia no puede estar vacía.')
+            return redirect('dashboard_conductores')
+
+        if Chofer.objects.filter(licencia=licencia).exclude(pk=chofer.pk).exists():
+            messages.error(request, f'La licencia "{licencia}" ya está asignada a otro conductor.')
+            return redirect('dashboard_conductores')
 
         chofer.licencia = licencia
         chofer.telefono = telefono
-        chofer.save()
+        chofer.save(update_fields=['licencia', 'telefono', 'actualizado_en'])
 
         user = chofer.usuario
         user.first_name = first_name
         user.last_name = last_name
-        user.save()
+        user.save(update_fields=['first_name', 'last_name'])
 
         registrar_auditoria(request.user, 'MODIFICAR', 'Conductor / Chofer', f'Se modificaron los datos del conductor "{user.username}"')
         messages.success(request, f'¡Datos del conductor "{user.username}" modificados con éxito!')
     return redirect('dashboard_conductores')
 
-@login_required
+
+@admin_required
+@require_POST
 def chofer_eliminar(request, pk):
     chofer = get_object_or_404(Chofer, pk=pk)
-    if request.method == 'POST':
-        username = chofer.usuario.username
-        user = chofer.usuario
-        chofer.delete()
-        user.delete()
-        registrar_auditoria(request.user, 'ELIMINAR', 'Conductor / Chofer', f'Se eliminó al conductor y usuario "{username}"')
-        messages.success(request, f'Conductor "{username}" eliminado exitosamente.')
+    if chofer.jornada_set.exists():
+        messages.error(
+            request,
+            'No se puede eliminar al conductor porque tiene jornadas asociadas en el historial.',
+        )
+        return redirect('dashboard_conductores')
+    if chofer.usuario.is_superuser:
+        messages.error(request, 'No se puede eliminar la cuenta de un superusuario.')
+        return redirect('dashboard_conductores')
+
+    username = chofer.usuario.username
+    user = chofer.usuario
+    chofer.delete()
+    user.delete()
+    registrar_auditoria(request.user, 'ELIMINAR', 'Conductor / Chofer', f'Se eliminó al conductor y usuario "{username}"')
+    messages.success(request, f'Conductor "{username}" eliminado exitosamente.')
     return redirect('dashboard_conductores')

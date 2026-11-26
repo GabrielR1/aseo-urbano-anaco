@@ -320,8 +320,8 @@
         const choferNombre = choferOpt ? (choferOpt.dataset.nombre || choferOpt.text.trim()) : 'Chofer seleccionado';
 
         preview.innerHTML = `
-            El camión <strong style="color: #1d4ed8;">[${vehPlaca}]</strong> recorrerá la <strong style="color: #15803d;">${rutaNombre}</strong>.<br>
-            📱 <span style="color: #0369a1;">Se rastreará el móvil de:</span> <strong>${choferNombre}</strong>.
+            El camión <strong style="color: #1d4ed8;">[${escapeHtml(vehPlaca)}]</strong> recorrerá la <strong style="color: #15803d;">${escapeHtml(rutaNombre)}</strong>.<br>
+            📱 <span style="color: #0369a1;">Se rastreará el móvil de:</span> <strong>${escapeHtml(choferNombre)}</strong>.
         `;
     }
 
@@ -336,7 +336,7 @@
                 </div>
                 <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 800;">¿Cancelar esta jornada?</h4>
                 <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5;">
-                    Estás a punto de desprogramar la jornada para la ruta <strong style="color: #dc2626;">${rutaNombre}</strong>.
+                    Estás a punto de desprogramar la jornada para la ruta <strong style="color: #dc2626;">${escapeHtml(rutaNombre)}</strong>.
                 </p>
                 <div style="display: flex; gap: 12px;">
                     <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #e2e8f0; color: #334155;">Cancelar</button>

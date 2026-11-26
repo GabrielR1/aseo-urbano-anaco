@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -47,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Credenciales incorrectas. Intenta de nuevo.'),
+            content: Text(auth.lastError ?? 'Credenciales incorrectas. Intenta de nuevo.'),
             backgroundColor: Colors.redAccent.shade700,
             behavior: SnackBarBehavior.floating,
           ),
@@ -122,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
-    );
+    ).whenComplete(serverController.dispose);
   }
 
   @override
@@ -200,6 +201,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         controller: _usernameController,
                         style: const TextStyle(color: Colors.white),
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.username],
                         decoration: InputDecoration(
                           labelText: 'Usuario',
                           labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
@@ -223,6 +226,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         style: const TextStyle(color: Colors.white),
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
+                        onSubmitted: (_) {
+                          if (!_isLoading) _login();
+                        },
                         decoration: InputDecoration(
                           labelText: 'Contraseña',
                           labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
@@ -286,33 +294,34 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Quick Demo Pill
-                GestureDetector(
-                  onTap: () => _fillDemo('admin', 'admin123'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: accentGreen.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: accentGreen.withValues(alpha: 0.25)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.bolt, color: accentGreen, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'Autollenar Demo: admin / admin123',
-                          style: TextStyle(
-                            color: Color(0xFF34D399),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                // Quick Demo Pill: solo visible en compilaciones de depuración.
+                if (kDebugMode)
+                  GestureDetector(
+                    onTap: () => _fillDemo('admin', 'admin123'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: accentGreen.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: accentGreen.withValues(alpha: 0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.bolt, color: accentGreen, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'Autollenar Demo: admin / admin123',
+                            style: TextStyle(
+                              color: Color(0xFF34D399),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

@@ -333,7 +333,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Placa:</label>
-                        <input type="text" name="placa" class="form-input" value="${placa}" required>
+                        <input type="text" name="placa" class="form-input" value="${escapeHtml(placa)}" required>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Estado:</label>
@@ -347,21 +347,21 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Marca:</label>
-                        <input type="text" name="marca" class="form-input" value="${marca}" required>
+                        <input type="text" name="marca" class="form-input" value="${escapeHtml(marca)}" required>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Modelo:</label>
-                        <input type="text" name="modelo" class="form-input" value="${modelo}" required>
+                        <input type="text" name="modelo" class="form-input" value="${escapeHtml(modelo)}" required>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px;">
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Capacidad (Ton):</label>
-                        <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" value="${capacidad}" required>
+                        <input type="number" step="0.1" name="capacidad_toneladas" class="form-input" value="${escapeHtml(capacidad)}" required>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Rendimiento (Km/L):</label>
-                        <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" value="${rendimiento}" required>
+                        <input type="number" step="0.1" name="rendimiento_km_por_litro" class="form-input" value="${escapeHtml(rendimiento)}" required>
                     </div>
                 </div>
                 <button type="submit" class="btn-modern" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-size: 15px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
@@ -381,7 +381,7 @@
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
                 <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 800;">¿Eliminar este vehículo?</h4>
-                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px;">Se removerá el camión con placa <strong style="color: #dc2626;">${placa}</strong> del inventario de la flota.</p>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px;">Se removerá el camión con placa <strong style="color: #dc2626;">${escapeHtml(placa)}</strong> del inventario de la flota.</p>
                 <div style="display: flex; gap: 12px;">
                     <button type="button" onclick="closeModal()" class="btn-modern" style="flex: 1; background: #e2e8f0; color: #334155;">Cancelar</button>
                     <button type="submit" class="btn-modern" style="flex: 1; background: #dc2626; color: white;">

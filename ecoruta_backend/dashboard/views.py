@@ -1,27 +1,84 @@
 from datetime import timedelta
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.http import HttpResponse
-from administracion.models import Vehiculo, Ruta, RegistroCombustible, Chofer
-from logistica.models import Jornada, Incidencia, PuntoGeolocalizacion
+from decimal import Decimal, InvalidOperation
+
 import django.utils.timezone
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db.models import Avg, Prefetch, Sum
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.dateparse import parse_date
+from django.utils.http import url_has_allowed_host_and_scheme
 
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
 
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from administracion.models import (
-    Vehiculo, Ruta, RegistroCombustible, Chofer, RegistroAuditoria, PuntajeChofer, IncentivoChofer
+    Chofer,
+    IncentivoChofer,
+    PuntajeChofer,
+    RegistroAuditoria,
+    RegistroCombustible,
+    Ruta,
+    Vehiculo,
 )
 from logistica.gamificacion import evaluar_y_actualizar_puntaje_chofer
+from logistica.models import Incidencia, Jornada, PuntoGeolocalizacion
+from logistica.services import serializar_camion, serializar_incidencia
+from security.permissions import admin_required, es_administrador
+
+
+def _prefetch_puntos():
+    return Prefetch(
+        'puntos',
+        queryset=PuntoGeolocalizacion.objects.order_by('timestamp', 'id'),
+    )
+
+
+def _parse_coordenada(valor):
+    """Convierte una coordenada de formulario en Decimal o None si no es válida."""
+    texto = (valor or '').strip()
+    if not texto:
+        return None
+    try:
+        numero = Decimal(texto)
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if not Decimal('-180') <= numero <= Decimal('180'):
+        return None
+    return numero
+
+
+def _parse_entero(valor):
+    """Convierte un identificador de formulario en entero o None."""
+    try:
+        return int(str(valor).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _redirigir_seguro(request, destino, fallback):
+    """Redirige a ``destino`` solo si pertenece al mismo host; si no, usa ``fallback``."""
+    if destino and url_has_allowed_host_and_scheme(
+        destino,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(destino)
+    return redirect(fallback)
+
 
 @login_required
 def dashboard_home(request):
+    if not es_administrador(request.user):
+        # Los conductores tienen su propio panel móvil de ruta.
+        return redirect('dashboard_chofer_gps')
+
     ahora_local = django.utils.timezone.localtime(django.utils.timezone.now())
     hoy = ahora_local.date()
 
@@ -36,14 +93,18 @@ def dashboard_home(request):
     jornadas_activas = Jornada.objects.filter(estado='en_curso').count()
 
     # Kilometraje real medido por trazas GPS (Haversine) — sin valores simulados
-    todas_jornadas = list(Jornada.objects.select_related('ruta', 'vehiculo').prefetch_related('puntos').all())
+    todas_jornadas = list(
+        Jornada.objects.select_related('ruta', 'vehiculo')
+        .prefetch_related(_prefetch_puntos())
+        .all()
+    )
     km_por_jornada = {j.id: j.calcular_distancia_real_km() for j in todas_jornadas}
     km_acumulados = round(sum(km_por_jornada.values()), 2)
     total_puntos_gps = PuntoGeolocalizacion.objects.count()
 
     # Combustible despachado (Litros reales registrados — 0.0 si no hay cargas)
-    registros = RegistroCombustible.objects.all()
-    total_litros = round(sum(float(r.litros) for r in registros), 1) if registros.exists() else 0.0
+    totales_combustible = RegistroCombustible.objects.aggregate(total=Sum('litros'))
+    total_litros = round(float(totales_combustible['total'] or 0), 1)
 
     # Incidencias reales
     incidencias_pendientes = Incidencia.objects.filter(estado='pendiente').count()
@@ -100,7 +161,7 @@ def dashboard_home(request):
     return render(request, 'dashboard/home.html', context)
 
 
-@login_required
+@admin_required
 def rutas_gestion(request):
     rutas = Ruta.objects.all().order_by('nombre')
     vehiculos = Vehiculo.objects.all().order_by('placa')
@@ -115,7 +176,7 @@ def rutas_gestion(request):
     return render(request, 'dashboard/rutas.html', context)
 
 
-@login_required
+@admin_required
 def auditoria_listado(request):
     logs = RegistroAuditoria.objects.select_related('usuario').all().order_by('-timestamp')[:100]
     context = {
@@ -123,7 +184,7 @@ def auditoria_listado(request):
     }
     return render(request, 'dashboard/auditoria.html', context)
 
-@login_required
+@admin_required
 def incentivos_listado(request):
     choferes = Chofer.objects.select_related('usuario').all()
     for c in choferes:
@@ -138,7 +199,7 @@ def incentivos_listado(request):
     }
     return render(request, 'dashboard/incentivos.html', context)
 
-@login_required
+@admin_required
 def conductores_gestion(request):
     choferes = Chofer.objects.select_related('usuario').all()
     context = {
@@ -146,7 +207,7 @@ def conductores_gestion(request):
     }
     return render(request, 'dashboard/conductores.html', context)
 
-@login_required
+@admin_required
 def itinerario(request):
     jornadas = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').all().order_by('-fecha', '-id')
     rutas = Ruta.objects.all().order_by('nombre')
@@ -162,20 +223,30 @@ def itinerario(request):
     }
     return render(request, 'dashboard/itinerario.html', context)
 
-@login_required
+@admin_required
 def jornada_crear(request):
     if request.method == 'POST':
         vehiculo_id = request.POST.get('vehiculo')
         ruta_id = request.POST.get('ruta')
         chofer_id = request.POST.get('chofer')
-        fecha = request.POST.get('fecha') or django.utils.timezone.now().date()
+        fecha_raw = (request.POST.get('fecha') or '').strip()
+        fecha = parse_date(fecha_raw) if fecha_raw else django.utils.timezone.localdate()
         next_url = request.POST.get('next_url')
-        
-        vehiculo = get_object_or_404(Vehiculo, pk=vehiculo_id)
-        ruta = get_object_or_404(Ruta, pk=ruta_id)
-        chofer = Chofer.objects.filter(pk=chofer_id).first() if chofer_id else Chofer.objects.first()
-        
-        if chofer and fecha:
+
+        if fecha is None:
+            messages.error(request, 'La fecha indicada no es válida.')
+            return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
+
+        vehiculo = Vehiculo.objects.filter(pk=_parse_entero(vehiculo_id)).first()
+        ruta = Ruta.objects.filter(pk=_parse_entero(ruta_id)).first()
+        chofer_pk = _parse_entero(chofer_id)
+        chofer = Chofer.objects.filter(pk=chofer_pk).first() if chofer_pk else Chofer.objects.first()
+
+        if not vehiculo or not ruta:
+            messages.error(request, 'Debes seleccionar una ruta y un vehículo válidos.')
+            return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
+
+        if chofer:
             jornada = Jornada.objects.create(
                 vehiculo=vehiculo,
                 ruta=ruta,
@@ -193,17 +264,20 @@ def jornada_crear(request):
             messages.success(request, f'¡Ruta "{ruta.nombre}" asignada con éxito al camión [{vehiculo.placa}] con el conductor {chofer.usuario.get_full_name() or chofer.usuario.username}! El seguimiento satelital rastreará el móvil del chofer.')
         else:
             messages.error(request, 'Error al asignar el recorrido. Verifica que haya conductores registrados en el sistema.')
-            
-        if next_url:
-            return redirect(next_url)
-            
+
+        return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
+
     return redirect('dashboard_itinerario')
 
-@login_required
+
+@admin_required
 def jornada_eliminar(request, pk):
     jornada = get_object_or_404(Jornada, pk=pk)
     next_url = request.POST.get('next_url')
     if request.method == 'POST':
+        if jornada.estado == 'en_curso':
+            messages.error(request, 'No se puede eliminar una jornada que está en curso.')
+            return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
         ruta_nombre = jornada.ruta.nombre
         placa = jornada.vehiculo.placa
         jornada.delete()
@@ -214,56 +288,30 @@ def jornada_eliminar(request, pk):
             detalles=f"Cancelada la jornada de la ruta '{ruta_nombre}' con unidad [{placa}]"
         )
         messages.success(request, f'Jornada de la ruta "{ruta_nombre}" cancelada correctamente.')
-    if next_url:
-        return redirect(next_url)
-    return redirect('dashboard_itinerario')
+    return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
 
-@login_required
+
+@admin_required
 def mapa_monitoreo(request):
-    jornadas = Jornada.objects.select_related(
-        'vehiculo', 'ruta', 'chofer', 'chofer__usuario'
-    ).filter(estado__in=['en_curso', 'pendiente']).order_by('-id')
-    incidencias = Incidencia.objects.select_related('jornada', 'jornada__vehiculo').order_by('-timestamp')
+    jornadas = (
+        Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario')
+        .filter(estado__in=['en_curso', 'pendiente'])
+        .prefetch_related(_prefetch_puntos())
+        .order_by('-id')
+    )
+    incidencias = list(
+        Incidencia.objects.select_related(
+            'jornada', 'jornada__vehiculo', 'jornada__chofer', 'jornada__chofer__usuario'
+        ).order_by('-timestamp')
+    )
 
-    camiones_lista = []
-    for j in jornadas:
-        puntos_qs = list(j.puntos.order_by('-timestamp', '-id')[:120])
-        ultimo_punto = puntos_qs[0] if puntos_qs else None
-        trayectoria = [[float(p.latitud), float(p.longitud)] for p in reversed(puntos_qs)]
+    camiones_lista = [serializar_camion(j) for j in jornadas]
 
-        camiones_lista.append({
-            'jornada_id': j.id,
-            'placa': j.vehiculo.placa,
-            'modelo': f"{j.vehiculo.marca} {j.vehiculo.modelo}",
-            'chofer': j.chofer.usuario.get_full_name() or j.chofer.usuario.username,
-            'ruta': j.ruta.nombre,
-            'zona': j.ruta.zona or 'Municipio Anaco',
-            'estado': j.estado,
-            'estado_display': j.get_estado_display(),
-            'tiene_gps': ultimo_punto is not None,
-            'latitud': float(ultimo_punto.latitud) if ultimo_punto else None,
-            'longitud': float(ultimo_punto.longitud) if ultimo_punto else None,
-            'velocidad_kmh': round(float(ultimo_punto.velocidad_kmh or 0.0), 1) if ultimo_punto else 0.0,
-            'precision_metros': round(float(ultimo_punto.precision_metros), 1) if (ultimo_punto and ultimo_punto.precision_metros is not None) else None,
-            'distancia_real_km': j.calcular_distancia_real_km(),
-            'puntos_count': j.puntos.count(),
-            'trayectoria': trayectoria,
-            'ultima_actualizacion': django.utils.timezone.localtime(ultimo_punto.timestamp).strftime('%H:%M:%S') if ultimo_punto else None,
-        })
-
-    incidencias_lista = []
-    for inc in incidencias:
-        if inc.latitud is not None and inc.longitud is not None:
-            incidencias_lista.append({
-                'id': inc.id,
-                'descripcion': inc.descripcion,
-                'vehiculo_placa': inc.jornada.vehiculo.placa if inc.jornada and inc.jornada.vehiculo else 'S/V',
-                'latitud': float(inc.latitud),
-                'longitud': float(inc.longitud),
-                'estado': inc.estado,
-                'estado_display': inc.get_estado_display(),
-                'timestamp': django.utils.timezone.localtime(inc.timestamp).strftime('%d/%m/%Y %H:%M'),
-            })
+    incidencias_lista = [
+        serializar_incidencia(inc)
+        for inc in incidencias
+        if inc.latitud is not None and inc.longitud is not None
+    ]
 
     context = {
         'camiones': camiones_lista,
@@ -271,7 +319,7 @@ def mapa_monitoreo(request):
         'incidencias_lista': incidencias_lista,
         'total_camiones': len(camiones_lista),
         'total_con_gps': sum(1 for c in camiones_lista if c['tiene_gps']),
-        'total_incidencias': incidencias.count(),
+        'total_incidencias': len(incidencias),
         'rutas': Ruta.objects.all().order_by('nombre'),
         'vehiculos': Vehiculo.objects.all().order_by('placa'),
         'choferes': Chofer.objects.select_related('usuario').all(),
@@ -290,7 +338,7 @@ def chofer_gps_movil(request):
         'vehiculo', 'ruta', 'chofer', 'chofer__usuario'
     ).filter(estado__in=['en_curso', 'pendiente']).order_by('-id')
 
-    es_admin = request.user.is_staff or request.user.is_superuser
+    es_admin = es_administrador(request.user)
     if not es_admin:
         jornadas_qs = jornadas_qs.filter(chofer__usuario=request.user)
 
@@ -306,47 +354,66 @@ def chofer_gps_movil(request):
     }
     return render(request, 'dashboard/chofer_gps.html', context)
 
-@login_required
+@admin_required
 def recursos(request):
     registros = RegistroCombustible.objects.select_related('vehiculo').all().order_by('-fecha')
     vehiculos = Vehiculo.objects.all()
-    
-    total_litros = sum(r.litros for r in registros) if registros else 0
-    costo_total = sum(r.costo_total for r in registros) if registros else 0
-    rendimiento_prom = (sum(v.rendimiento_km_por_litro for v in vehiculos) / vehiculos.count()) if vehiculos.exists() else 0
-    
+
+    totales = registros.aggregate(litros=Sum('litros'), costo=Sum('costo_total'))
+    promedio = vehiculos.aggregate(promedio=Avg('rendimiento_km_por_litro'))
+
     context = {
         'registros': registros,
         'vehiculos': vehiculos,
-        'total_litros': round(total_litros, 2),
-        'costo_total': round(costo_total, 2),
-        'rendimiento_prom': round(rendimiento_prom, 1)
+        'total_litros': round(float(totales['litros'] or 0), 2),
+        'costo_total': round(float(totales['costo'] or 0), 2),
+        'rendimiento_prom': round(float(promedio['promedio'] or 0), 1),
     }
     return render(request, 'dashboard/recursos.html', context)
 
-@login_required
+@admin_required
 def recurso_crear(request):
     if request.method == 'POST':
         vehiculo_id = request.POST.get('vehiculo')
         litros = request.POST.get('litros')
         costo_total = request.POST.get('costo_total')
         kilometraje = request.POST.get('kilometraje', 0)
-        
-        vehiculo = get_object_or_404(Vehiculo, pk=vehiculo_id)
-        if litros and costo_total:
-            RegistroCombustible.objects.create(
-                vehiculo=vehiculo,
-                litros=litros,
-                costo_total=costo_total,
-                kilometraje_actual=kilometraje
-            )
-            messages.success(request, '¡Registro de combustible guardado exitosamente!')
-        else:
-            messages.error(request, 'Por favor completa los campos de litros y costo.')
-            
+
+        try:
+            litros_dec = Decimal(str(litros))
+            costo_dec = Decimal(str(costo_total))
+            km_int = int(kilometraje or 0)
+        except (InvalidOperation, ValueError, TypeError):
+            messages.error(request, 'Los valores de litros, costo o kilometraje no son válidos.')
+            return redirect('dashboard_recursos')
+
+        if litros_dec <= 0 or costo_dec < 0 or km_int < 0:
+            messages.error(request, 'Los litros deben ser mayores que cero y el costo no puede ser negativo.')
+            return redirect('dashboard_recursos')
+
+        vehiculo_pk = _parse_entero(vehiculo_id)
+        if vehiculo_pk is None:
+            messages.error(request, 'Debes seleccionar un vehículo válido.')
+            return redirect('dashboard_recursos')
+
+        vehiculo = get_object_or_404(Vehiculo, pk=vehiculo_pk)
+        RegistroCombustible.objects.create(
+            vehiculo=vehiculo,
+            litros=litros_dec,
+            costo_total=costo_dec,
+            kilometraje_actual=km_int
+        )
+        RegistroAuditoria.objects.create(
+            usuario=request.user,
+            accion='CREAR',
+            tabla_afectada='Registro de Combustible',
+            detalles=f"Recarga de {litros_dec} L por ${costo_dec} para la unidad [{vehiculo.placa}]",
+        )
+        messages.success(request, '¡Registro de combustible guardado exitosamente!')
+
     return redirect('dashboard_recursos')
 
-@login_required
+@admin_required
 def recurso_eliminar(request, pk):
     registro = get_object_or_404(RegistroCombustible, pk=pk)
     if request.method == 'POST':
@@ -354,7 +421,7 @@ def recurso_eliminar(request, pk):
         messages.success(request, 'Registro de combustible eliminado.')
     return redirect('dashboard_recursos')
 
-@login_required
+@admin_required
 def exportar_recursos_excel(request):
     wb = openpyxl.Workbook()
     ahora_local = django.utils.timezone.localtime(django.utils.timezone.now())
@@ -362,12 +429,18 @@ def exportar_recursos_excel(request):
 
     registros = RegistroCombustible.objects.select_related('vehiculo').all().order_by('-fecha')
     vehiculos = Vehiculo.objects.all().order_by('placa')
-    jornadas = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').all().order_by('-fecha', '-id')
+    jornadas = (
+        Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario')
+        .prefetch_related(_prefetch_puntos())
+        .all()
+        .order_by('-fecha', '-id')
+    )
 
     total_vehiculos = vehiculos.count()
     vehiculos_activos = vehiculos.filter(estado='activo').count()
-    total_litros = sum(float(r.litros) for r in registros) if registros.exists() else 0.0
-    costo_total = sum(float(r.costo_total) for r in registros) if registros.exists() else 0.0
+    totales = registros.aggregate(litros=Sum('litros'), costo=Sum('costo_total'))
+    total_litros = float(totales['litros'] or 0)
+    costo_total = float(totales['costo'] or 0)
 
     header_fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
     header_font = Font(color="000000", bold=True)
@@ -455,10 +528,8 @@ def exportar_recursos_excel(request):
     return response
 
 
-@login_required
+@admin_required
 def exportar_recursos_pdf(request):
-    from reportlab.platypus import HRFlowable
-
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'attachment; filename="Reporte_Combustible_Aseo_Urbano.pdf"'
 
@@ -526,12 +597,18 @@ def exportar_recursos_pdf(request):
     # Consultas de datos
     vehiculos = Vehiculo.objects.all().order_by('placa')
     registros = RegistroCombustible.objects.select_related('vehiculo').all().order_by('-fecha')
-    jornadas = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').all().order_by('-fecha', '-id')[:10]
+    jornadas = (
+        Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario')
+        .prefetch_related(_prefetch_puntos())
+        .all()
+        .order_by('-fecha', '-id')[:10]
+    )
 
     total_vehiculos = vehiculos.count()
     vehiculos_activos = vehiculos.filter(estado='activo').count()
-    total_litros = sum(float(r.litros) for r in registros) if registros.exists() else 0.0
-    costo_total = sum(float(r.costo_total) for r in registros) if registros.exists() else 0.0
+    totales = registros.aggregate(litros=Sum('litros'), costo=Sum('costo_total'))
+    total_litros = float(totales['litros'] or 0)
+    costo_total = float(totales['costo'] or 0)
 
     # Ficha de datos generales (estilo planilla administrativa)
     info_data = [
@@ -670,41 +747,46 @@ def exportar_recursos_pdf(request):
     return response
 
 
-@login_required
+@admin_required
 def incidencias_gestion(request):
-    incidencias = Incidencia.objects.select_related(
-        'jornada', 'jornada__vehiculo', 'jornada__ruta', 'jornada__chofer', 'jornada__chofer__usuario'
-    ).all().order_by('-timestamp')
+    incidencias = list(
+        Incidencia.objects.select_related(
+            'jornada', 'jornada__vehiculo', 'jornada__ruta', 'jornada__chofer', 'jornada__chofer__usuario'
+        ).all().order_by('-timestamp')
+    )
     jornadas = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').order_by('-fecha', '-id')
-
-    total_incidencias = incidencias.count()
-    pendientes_count = incidencias.filter(estado='pendiente').count()
-    en_atencion_count = incidencias.filter(estado='en_atencion').count()
-    resueltas_count = incidencias.filter(estado='resuelta').count()
 
     context = {
         'incidencias': incidencias,
         'jornadas': jornadas,
-        'total_incidencias': total_incidencias,
-        'pendientes_count': pendientes_count,
-        'en_atencion_count': en_atencion_count,
-        'resueltas_count': resueltas_count,
+        'total_incidencias': len(incidencias),
+        'pendientes_count': sum(1 for i in incidencias if i.estado == 'pendiente'),
+        'en_atencion_count': sum(1 for i in incidencias if i.estado == 'en_atencion'),
+        'resueltas_count': sum(1 for i in incidencias if i.estado == 'resuelta'),
     }
     return render(request, 'dashboard/incidencias.html', context)
 
 
-@login_required
+@admin_required
 def incidencia_crear(request):
     if request.method == 'POST':
         jornada_id = request.POST.get('jornada')
         descripcion = request.POST.get('descripcion', '').strip()
-        latitud_raw = (request.POST.get('latitud') or '').strip()
-        longitud_raw = (request.POST.get('longitud') or '').strip()
-        latitud = latitud_raw if latitud_raw else None
-        longitud = longitud_raw if longitud_raw else None
+        latitud = _parse_coordenada(request.POST.get('latitud'))
+        longitud = _parse_coordenada(request.POST.get('longitud'))
+        if latitud is not None and not Decimal('-90') <= latitud <= Decimal('90'):
+            latitud = None
+        if latitud is None or longitud is None:
+            latitud = None
+            longitud = None
         foto = request.FILES.get('foto')
 
-        jornada = get_object_or_404(Jornada, pk=jornada_id)
+        jornada_pk = _parse_entero(jornada_id)
+        jornada = Jornada.objects.filter(pk=jornada_pk).first() if jornada_pk else None
+        if not jornada:
+            messages.error(request, 'Debes seleccionar una jornada válida.')
+            return redirect('dashboard_incidencias')
+
         if descripcion:
             inc = Incidencia.objects.create(
                 jornada=jornada,
@@ -727,7 +809,7 @@ def incidencia_crear(request):
     return redirect('dashboard_incidencias')
 
 
-@login_required
+@admin_required
 def incidencia_actualizar(request, pk):
     incidencia = get_object_or_404(Incidencia, pk=pk)
     if request.method == 'POST':
@@ -737,9 +819,10 @@ def incidencia_actualizar(request, pk):
         if nuevo_estado in ['pendiente', 'en_atencion', 'resuelta']:
             incidencia.estado = nuevo_estado
             incidencia.resolucion_detalles = resolucion_detalles
-            if nuevo_estado == 'resuelta':
-                incidencia.resuelta_en = django.utils.timezone.now()
-            incidencia.save()
+            incidencia.resuelta_en = (
+                django.utils.timezone.now() if nuevo_estado == 'resuelta' else None
+            )
+            incidencia.save(update_fields=['estado', 'resolucion_detalles', 'resuelta_en'])
 
             RegistroAuditoria.objects.create(
                 usuario=request.user,
@@ -754,7 +837,7 @@ def incidencia_actualizar(request, pk):
     return redirect('dashboard_incidencias')
 
 
-@login_required
+@admin_required
 def incidencia_eliminar(request, pk):
     incidencia = get_object_or_404(Incidencia, pk=pk)
     if request.method == 'POST':

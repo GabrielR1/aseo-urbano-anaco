@@ -10,8 +10,8 @@ El sistema está construido bajo una arquitectura **Cliente-Servidor desacoplada
 ### 1.1. Backend y Panel Web Administrativo (`ecoruta_backend/`)
 | Componente | Tecnología / Librería | Versión / Detalle | Propósito en el Proyecto |
 | :--- | :--- | :--- | :--- |
-| **Lenguaje Base** | **Python** | 3.10+ | Lógica de negocio, cálculos ecológicos, vistas web y servicios REST. |
-| **Framework Web** | **Django** | 5.2.x | Arquitectura MVT (Modelo-Vista-Template), ORM, seguridad CSRF, sesiones y panel administrativo. |
+| **Lenguaje Base** | **Python** | 3.12+ | Lógica de negocio, cálculos ecológicos, vistas web y servicios REST. |
+| **Framework Web** | **Django** | 6.1.x | Arquitectura MVT (Modelo-Vista-Template), ORM, seguridad CSRF, sesiones y panel administrativo. |
 | **API REST** | **Django REST Framework (DRF)** | 3.x | Creación de ViewSets, Serializadores y endpoints JSON para la aplicación móvil y el mapa en tiempo real. |
 | **Autenticación API** | **DRF AuthToken & SimpleJWT** | Token / JWT | Autenticación segura mediante tokens para dispositivos móviles (`/api/auth/login/` y `/api/token/`). |
 | **Documentación API** | **drf-spectacular (OpenAPI 3)** | Swagger / Redoc | Generación automática de documentación interactiva en `/api/docs/` y `/api/redoc/`. |
@@ -110,10 +110,12 @@ App Django Gabriel/
 
 ### 3.1. Núcleo de Configuración (`EcoRuta/`)
 * **[settings.py](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_backend/EcoRuta/settings.py):**
-  * Define `AUTH_USER_MODEL = 'security.Usuario'` (línea 157) para utilizar el modelo de usuario extendido con soporte de roles.
-  * Configura automáticamente `CSRF_TRUSTED_ORIGINS` (líneas 29–36) para permitir peticiones desde `localhost`, `127.0.0.1` y cualquier IP de la subred local `192.168.1.1` a `192.168.1.254` en el puerto `8000`.
-  * Permite conmutar entre **SQLite** (por defecto en desarrollo) y **PostgreSQL** mediante la variable `USE_POSTGRES` (líneas 94–113).
-  * Configura `REST_FRAMEWORK` (líneas 164–176) habilitando tres métodos simultáneos de autenticación: `JWTAuthentication`, `TokenAuthentication` y `SessionAuthentication`.
+  * Define `AUTH_USER_MODEL = 'security.Usuario'` para utilizar el modelo de usuario extendido con soporte de roles.
+  * Configura `CSRF_TRUSTED_ORIGINS` para permitir peticiones desde `localhost`, `127.0.0.1`, Render y cualquier IP de la subred local `192.168.1.1` a `192.168.1.254` en el puerto `8000` durante desarrollo.
+  * Permite conmutar entre **SQLite** (por defecto en desarrollo) y **PostgreSQL** mediante `USE_POSTGRES` o `DATABASE_URL`.
+  * Configura `REST_FRAMEWORK` habilitando tres métodos simultáneos de autenticación: `JWTAuthentication`, `TokenAuthentication` y `SessionAuthentication`, con permiso global `IsAuthenticated`.
+  * Aplica endurecimiento por entorno: `SECRET_KEY` obligatoria y CORS cerrado con `DEBUG=False`, cookies seguras, HSTS y cabeceras `nosniff`/`Referrer-Policy`.
+  * Registra el context processor `security.context_processors.app_settings` para exponer `demo_mode` y la versión de la app a las plantillas.
   * Define localización venezolana: `LANGUAGE_CODE = 'es-ve'` y `TIME_ZONE = 'America/Caracas'`.
 * **[urls.py](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_backend/EcoRuta/urls.py):**
   * Redirige la raíz `/` directamente a `/dashboard/`.
@@ -125,6 +127,12 @@ App Django Gabriel/
 * **[security/models.py](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_backend/security/models.py):**
   * **`Rol` (líneas 6–16):** Tabla normalizada para almacenar roles del sistema (`nombre`, `descripcion`, `creado_en`).
   * **`Usuario` (líneas 19–56):** Hereda de `AbstractUser` de Django. Añade el campo `rol` (`admin` o `chofer`) y la clave foránea `rol_ref`. Sobrescribe el método `save()` (líneas 47–53) para que todo usuario con rol `ADMIN` reciba automáticamente permisos `is_staff = True`, mientras que los usuarios con rol `CHOFER` tengan restringido el acceso al panel interno de administración.
+* **[security/permissions.py](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_backend/security/permissions.py):**
+  * **`es_administrador(user)`:** fuente única de verdad para decidir si una cuenta puede operar el panel (`is_staff`, `is_superuser` o `rol=admin`).
+  * **`admin_required`:** decorador de vistas web que redirige al login si no hay sesión y devuelve 403 con la plantilla institucional si el usuario es un chofer.
+  * **`EsAdministrador`:** permiso DRF reutilizado por los ViewSets y endpoints de monitoreo.
+* **[security/context_processors.py](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_backend/security/context_processors.py):**
+  * Expone `debug`, `demo_mode` y `app_version` a las plantillas; el botón de credenciales de demostración solo se renderiza cuando `DEBUG=True`.
 
 ---
 
@@ -229,14 +237,15 @@ Toda la lógica de la aplicación móvil reside dentro de `ecoruta_frontend/lib/
    * Al abrir la app ejecuta `_checkAuthStatus()` para verificar si existe un token guardado en el almacenamiento seguro del dispositivo y mantener la sesión iniciada.
 
 3. **[lib/services/api_service.dart](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_frontend/lib/services/api_service.dart):**
-   * **Detección inteligente de plataforma (`baseUrl`, líneas 8–13):** Si se ejecuta en Web o Windows apunta a `http://127.0.0.1:8000/api`; si corre en el emulador Android apunta automáticamente a `http://10.0.2.2:8000/api`.
-   * **`login(username, password)`:** Envía credenciales a `/api/auth/login/` y cifra el token devuelto en `FlutterSecureStorage`.
+   * **Detección inteligente de plataforma (`baseUrl`):** Si se ejecuta en Web o Windows apunta a `http://127.0.0.1:8000/api`; en Android/iOS usa la URL configurable desde el login (por defecto `http://192.168.1.112:8000/api`) y recuerda la última dirección guardada.
+   * **`login(username, password)`:** Envía credenciales a `/api/auth/login/`, cifra el token devuelto en `FlutterSecureStorage` y expone `lastError` para mensajes claros.
    * **`sendLocation(...)`:** Envía latitud, longitud, velocidad en km/h y precisión a `/api/logistica/puntos/`.
-   * **`sincronizarLote(puntos)`:** Envía la cola de coordenadas acumuladas sin conexión a `/api/logistica/coordenadas/sincronizar_lote/`.
+   * **`sincronizarLote(puntos)`:** Envía la cola de coordenadas acumuladas sin conexión a `/api/logistica/coordenadas/sincronizar_lote/`, conservando la marca de tiempo original.
+   * **Cola offline persistente (`loadOfflineQueue` / `saveOfflineQueue`):** Sobrevive al cierre de la app y se limita a 2000 puntos para no crecer indefinidamente.
    * **`getGamificacion()` y `getNotificaciones()`:** Consultan el perfil de puntos/bonos y las jornadas asignadas al chofer.
 
 4. **[lib/screens/login_screen.dart](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_frontend/lib/screens/login_screen.dart):**
-   * Interfaz de inicio de sesión para operadores con validación de campos, ocultamiento de contraseña y botón rápido de demostración (`_fillDemo('admin', 'admin123')`).
+   * Interfaz de inicio de sesión con validación de campos, ocultamiento de contraseña, autofill y configuración de la URL del servidor. El botón de demostración solo se muestra en compilaciones de depuración (`kDebugMode`).
 
 5. **[lib/screens/home_screen.dart](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_frontend/lib/screens/home_screen.dart):**
    * Muestra la tarjeta de perfil gamificado del chofer (Nivel actual, Puntos Eco, Distancia total y Jornadas exitosas).
@@ -246,8 +255,9 @@ Toda la lógica de la aplicación móvil reside dentro de `ecoruta_frontend/lib/
 6. **[lib/screens/route_active_screen.dart](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_frontend/lib/screens/route_active_screen.dart):**
    * Solicita permisos de ubicación satelital (`Geolocator.checkPermission()` / `requestPermission()`).
    * Activa un cronómetro de jornada (`_elapsedTimer` cada 1 segundo) y un temporizador de telemetría (`_gpsTimer` cada 10 segundos).
-   * En `_captureAndSendGps()` (líneas 68–112): obtiene la posición GPS de alta precisión, convierte la velocidad de $\text{m/s}$ a $\text{km/h}$ (`position.speed * 3.6`) y la transmite al servidor.
-   * **Resiliencia Offline (`_offlinePointsQueue`):** Si el envío falla por falta de cobertura móvil, guarda el punto GPS en memoria local (`_offlinePointsQueue`) y muestra un indicador naranja *"En Cola Offline"*. Tan pronto como se recupera la conexión en un envío posterior, descarga automáticamente todos los puntos pendientes hacia el servidor mediante `sincronizarLote()`.
+   * En `_captureAndSendGps()`: obtiene la posición GPS de alta precisión con límite de tiempo, convierte la velocidad de $\text{m/s}$ a $\text{km/h}$ (`position.speed * 3.6`) y la transmite al servidor.
+   * **Resiliencia Offline (`_offlinePointsQueue`):** Si el envío falla por falta de cobertura móvil, el punto GPS se guarda en la cola persistente del dispositivo con su marca de tiempo y se muestra un indicador *"En Cola Offline"*. Al recuperarse la conexión, se sincroniza automáticamente con `sincronizarLote()`.
+   * Maneja permisos denegados o bloqueados con acceso directo a los ajustes del sistema.
 
 7. **[lib/screens/incident_screen.dart](file:///c:/Users/gabri/Desktop/App%20Django%20Gabriel/ecoruta_frontend/lib/screens/incident_screen.dart):**
    * Permite al chofer describir una eventualidad en la vía, tomar una foto con la cámara (`ImagePicker().pickImage(source: ImageSource.camera)`), capturar las coordenadas GPS exactas del incidente y enviarlo mediante una petición `http.MultipartRequest` a `/api/logistica/incidencias/`.

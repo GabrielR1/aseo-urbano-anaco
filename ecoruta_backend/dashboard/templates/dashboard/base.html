@@ -57,6 +57,25 @@
             box-sizing: border-box;
         }
 
+        .skip-link {
+            position: absolute;
+            left: 12px;
+            top: -60px;
+            z-index: 10000;
+            background: #15803d;
+            color: #ffffff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            text-decoration: none;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 12px;
+        }
+
         /* Subtle scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
@@ -677,6 +696,8 @@
 </head>
 <body>
 
+    <a href="#mainContent" class="skip-link">Saltar al contenido principal</a>
+
     <!-- Mobile Sidebar Backdrop -->
     <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileSidebar()"></div>
 
@@ -732,6 +753,10 @@
                 <i class="fa-solid fa-id-card"></i>
                 <span>Choferes y Cuadrillas</span>
             </a>
+            <a href="{% url 'dashboard_incentivos' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_incentivos' %}active{% endif %}">
+                <i class="fa-solid fa-award"></i>
+                <span>Incentivos y Ranking</span>
+            </a>
             <a href="{% url 'dashboard_auditoria' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_auditoria' %}active{% endif %}">
                 <i class="fa-solid fa-clock-rotate-left"></i>
                 <span>Registro de Actividades</span>
@@ -739,8 +764,9 @@
         </nav>
 
         <div class="sidebar-footer">
-            <div style="font-size: 11.5px; color: var(--text-muted); text-align: center; padding: 12px 14px; border-top: 1px solid var(--card-border);">
-                Alcaldía del Municipio Anaco
+            <div style="font-size: 11.5px; color: #94a3b8; text-align: center; padding: 12px 14px; border-top: 1px solid #334155;">
+                Alcaldía del Municipio Anaco<br>
+                <span style="font-size: 10.5px; color: #94a3b8;">EcoRuta v{{ app_version }}</span>
             </div>
         </div>
     </aside>
@@ -791,8 +817,8 @@
                 <div class="user-profile-pill">
                     <div class="user-avatar">{{ request.user.username|make_list|first|upper }}</div>
                     <div class="user-meta">
-                        <span class="user-name">{{ request.user.username }}</span>
-                        <span class="user-role">Administrador</span>
+                        <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="user-role">{% if request.user.is_superuser %}Superusuario{% else %}{{ request.user.get_rol_display }}{% endif %}</span>
                     </div>
                     <form action="{% url 'logout' %}" method="post" style="margin: 0;">
                         {% csrf_token %}
@@ -818,7 +844,7 @@
         </div>
 
         <!-- Main Page Dynamic Content -->
-        <main class="content-area">
+        <main class="content-area" id="mainContent">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -837,6 +863,15 @@
     </div>
 
     <script>
+        function escapeHtml(value) {
+            return String(value === null || value === undefined ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function toggleMobileSidebar() {
             const sidebar = document.getElementById('appSidebar');
             const backdrop = document.getElementById('sidebarBackdrop');
@@ -898,8 +933,8 @@
                         pending.slice(0, 4).forEach(inc => {
                             html += `
                                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 9px 11px; font-size: 12px;">
-                                    <div style="font-weight: 600; color: #991b1b; margin-bottom: 2px;">${inc.descripcion}</div>
-                                    <span style="font-size: 11px; color: var(--text-muted);">Camión: <b style="color: #0f172a;">${inc.vehiculo_placa}</b> • ${inc.timestamp}</span>
+                                    <div style="font-weight: 600; color: #991b1b; margin-bottom: 2px;">${escapeHtml(inc.descripcion)}</div>
+                                    <span style="font-size: 11px; color: var(--text-muted);">Camión: <b style="color: #0f172a;">${escapeHtml(inc.vehiculo_placa)}</b> • ${escapeHtml(inc.timestamp)}</span>
                                 </div>
                             `;
                         });
@@ -941,7 +976,7 @@
                         emptyMsg = document.createElement('tr');
                         emptyMsg.className = 'no-search-results-row';
                         const colCount = table.querySelectorAll('thead th').length || 5;
-                        emptyMsg.innerHTML = `<td colspan="${colCount}" style="padding: 24px; text-align: center; color: var(--text-muted);">No se encontraron resultados para "${filter}".</td>`;
+                        emptyMsg.innerHTML = `<td colspan="${colCount}" style="padding: 24px; text-align: center; color: var(--text-muted);">No se encontraron resultados para "${escapeHtml(filter)}".</td>`;
                         table.querySelector('tbody').appendChild(emptyMsg);
                     } else {
                         emptyMsg.style.display = '';

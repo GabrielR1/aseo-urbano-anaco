@@ -2,8 +2,10 @@
 Módulo de Gamificación, Evaluación de Desempeño e Incentivos a Conductores
 Proyecto EcoRuta
 """
+from django.db.models import Prefetch
+
 from administracion.models import Chofer, PuntajeChofer, IncentivoChofer
-from logistica.models import Jornada
+from logistica.models import Jornada, PuntoGeolocalizacion
 
 def evaluar_y_actualizar_puntaje_chofer(chofer):
     """
@@ -11,10 +13,17 @@ def evaluar_y_actualizar_puntaje_chofer(chofer):
     y asigna puntos, niveles e insignias de reconocimiento al conductor.
     """
     puntaje, created = PuntajeChofer.objects.get_or_create(chofer=chofer)
-    
-    jornadas_finalizadas = Jornada.objects.select_related('ruta').filter(chofer=chofer, estado='finalizada')
-    
-    total_jornadas = jornadas_finalizadas.count()
+
+    jornadas_finalizadas = list(
+        Jornada.objects.filter(chofer=chofer, estado='finalizada').prefetch_related(
+            Prefetch(
+                'puntos',
+                queryset=PuntoGeolocalizacion.objects.order_by('timestamp', 'id'),
+            )
+        )
+    )
+
+    total_jornadas = len(jornadas_finalizadas)
     total_km = sum(j.calcular_distancia_real_km() for j in jornadas_finalizadas)
     
     # Cálculo de puntos: 10 pts por km + 50 pts por jornada finalizada

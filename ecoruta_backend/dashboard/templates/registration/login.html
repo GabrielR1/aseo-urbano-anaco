@@ -47,7 +47,8 @@
 {% endblock %}
 
 {% block content %}
-<!-- Quick Fill Demo Credentials Banner -->
+{% if demo_mode %}
+<!-- Quick Fill Demo Credentials Banner (solo visible con DEBUG=True) -->
 <div class="demo-credentials-pill" onclick="fillDemoCredentials()" title="Clic para rellenar usuario y clave automáticamente">
     <div style="display: flex; align-items: center; gap: 8px; text-align: left;">
         <i class="fa-solid fa-key" style="color: var(--accent-green);"></i>
@@ -60,6 +61,7 @@
         AUTOLLENAR
     </span>
 </div>
+{% endif %}
 
 {% if form.errors %}
 <div class="error-message">
@@ -132,3 +134,4 @@
     }
 </script>
 {% endblock %}
+

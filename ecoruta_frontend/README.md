@@ -1,17 +1,47 @@
-# ecoruta_mobile
+# 📱 EcoRuta Chofer (Flutter)
 
-A new Flutter project.
+Aplicación móvil de EcoRuta para conductores de la Dirección de Aseo Urbano del Municipio Anaco.
 
-## Getting Started
+## Funcionalidades
 
-This project is a starting point for a Flutter application.
+- Inicio de sesión por token contra el backend Django.
+- Perfil gamificado: puntos, nivel, kilómetros y bonos en USD.
+- Inicio y finalización de la jornada asignada.
+- Telemetría GPS cada 10 segundos con velocímetro, precisión y cronómetro.
+- Cola offline persistente: los puntos se guardan en el dispositivo y se sincronizan al recuperar la conexión, conservando su hora de captura.
+- Reporte de incidencias con foto y ubicación.
+- Configuración de la URL del servidor desde el login (se recuerda en el dispositivo).
 
-A few resources to get you started if this is your first Flutter project:
+## Requisitos
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter SDK 3.x (Dart 3.11+).
+- Backend EcoRuta en ejecución.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Ejecutar
+
+```bash
+flutter pub get
+flutter run -d chrome      # Web
+flutter run -d windows     # Escritorio
+flutter run -d android     # Android
+```
+
+En Android, usa la IP de tu equipo en la red local, por ejemplo `http://192.168.1.112:8000/api`, desde el ícono de configuración del login. Para producción, configura una URL HTTPS.
+
+## Permisos
+
+La app declara permisos de internet, ubicación y cámara en `android/app/src/main/AndroidManifest.xml` y en `ios/Runner/Info.plist`. El modo HTTP sin cifrar está habilitado en Android para la demostración en red local; en producción usa HTTPS.
+
+## Estructura
+
+```text
+lib/
+├── main.dart
+├── providers/auth_provider.dart
+├── screens/
+│   ├── login_screen.dart
+│   ├── home_screen.dart
+│   ├── route_active_screen.dart
+│   └── incident_screen.dart
+└── services/api_service.dart
+```

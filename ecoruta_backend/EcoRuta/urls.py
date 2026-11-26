@@ -8,6 +8,7 @@ from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from dashboard.views import chofer_gps_movil
+from security.views import EcoRutaLoginView
 
 admin.site.site_header = "Aseo Urbano Anaco"
 admin.site.site_title = "Administración - Aseo Urbano Anaco"
@@ -17,6 +18,7 @@ urlpatterns = [
     path('', RedirectView.as_view(url='/dashboard/', permanent=False)),
     path('chofer/', chofer_gps_movil, name='chofer_movil_directo'),
     path('admin/', admin.site.urls),
+    path('accounts/login/', EcoRutaLoginView.as_view(), name='login'),
     path('accounts/', include('django.contrib.auth.urls')),
     path('dashboard/', include('dashboard.urls')),
     path('administracion/', include('administracion.urls')),

@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+
 import '../services/api_service.dart';
 import 'incident_screen.dart';
 
@@ -16,9 +18,11 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   final ApiService _apiService = ApiService();
   Timer? _gpsTimer;
   Timer? _elapsedTimer;
-  
+
   Position? _currentPosition;
   bool _isTracking = true;
+  bool _isRestoringQueue = true;
+  bool _capturando = false;
   int _secondsElapsed = 0;
   int _pointsSentCount = 0;
   final List<Map<String, dynamic>> _offlinePointsQueue = [];
@@ -26,8 +30,20 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   @override
   void initState() {
     super.initState();
-    _startTracking();
     _startElapsedTimer();
+    _inicializar();
+  }
+
+  Future<void> _inicializar() async {
+    final pendientes = await _apiService.loadOfflineQueue();
+    if (!mounted) return;
+    setState(() {
+      _offlinePointsQueue
+        ..clear()
+        ..addAll(pendientes);
+      _isRestoringQueue = false;
+    });
+    await _startTracking();
   }
 
   void _startElapsedTimer() {
@@ -39,44 +55,82 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   }
 
   Future<void> _startTracking() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      setState(() => _isTracking = false);
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        setState(() => _isTracking = false);
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) setState(() => _isTracking = false);
+        _mostrarAvisoUbicacion(
+          'El GPS del teléfono está desactivado. Actívalo para transmitir la ruta.',
+        );
         return;
       }
-    }
 
-    setState(() => _isTracking = true);
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied) {
+        if (mounted) setState(() => _isTracking = false);
+        _mostrarAvisoUbicacion('Se necesita permiso de ubicación para transmitir la ruta.');
+        return;
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) setState(() => _isTracking = false);
+        _mostrarAvisoUbicacion(
+          'El permiso de ubicación fue bloqueado. Habilítalo desde los ajustes del teléfono.',
+          abrirAjustes: true,
+        );
+        return;
+      }
 
-    // Initial reading
-    _captureAndSendGps();
+      if (!mounted) return;
+      setState(() => _isTracking = true);
 
-    // Periodic capture every 10 seconds
-    _gpsTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       await _captureAndSendGps();
-    });
+      _gpsTimer?.cancel();
+      _gpsTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+        await _captureAndSendGps();
+      });
+    } catch (e) {
+      debugPrint('Error iniciando el rastreo GPS: $e');
+      if (mounted) setState(() => _isTracking = false);
+    }
+  }
+
+  void _mostrarAvisoUbicacion(String mensaje, {bool abrirAjustes = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: Colors.orange.shade800,
+        action: abrirAjustes
+            ? SnackBarAction(
+                label: 'Ajustes',
+                textColor: Colors.white,
+                onPressed: Geolocator.openAppSettings,
+              )
+            : null,
+      ),
+    );
   }
 
   Future<void> _captureAndSendGps() async {
+    if (!_isTracking || _capturando) return;
+    _capturando = true;
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
       );
 
       if (mounted) {
         setState(() => _currentPosition = position);
       }
 
-      double speedKmh = (position.speed * 3.6).clamp(0.0, 120.0);
-      bool success = await _apiService.sendLocation(
+      final speedKmh = (position.speed * 3.6).clamp(0.0, 160.0).toDouble();
+      final success = await _apiService.sendLocation(
         widget.jornadaId,
         position.latitude,
         position.longitude,
@@ -88,33 +142,43 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         if (mounted) {
           setState(() => _pointsSentCount++);
         }
-        // If there were offline points queued, attempt flush
-        if (_offlinePointsQueue.isNotEmpty) {
-          bool syncSuccess = await _apiService.sincronizarLote(List.from(_offlinePointsQueue));
-          if (syncSuccess) {
-            _offlinePointsQueue.clear();
-          }
-        }
+        await _vaciarColaOffline();
       } else {
-        // Enqueue offline
-        _offlinePointsQueue.add({
-          'jornada': widget.jornadaId,
-          'latitud': position.latitude.toStringAsFixed(6),
-          'longitud': position.longitude.toStringAsFixed(6),
-          'velocidad_kmh': double.parse(speedKmh.toStringAsFixed(1)),
-          'precision_metros': double.parse(position.accuracy.toStringAsFixed(1)),
-        });
-        if (mounted) setState(() {});
+        _encolarPunto(position, speedKmh);
       }
     } catch (e) {
       debugPrint('Error obteniendo coordenadas GPS: $e');
+    } finally {
+      _capturando = false;
     }
   }
 
+  void _encolarPunto(Position position, double speedKmh) {
+    _offlinePointsQueue.add({
+      'jornada': widget.jornadaId,
+      'latitud': position.latitude.toStringAsFixed(6),
+      'longitud': position.longitude.toStringAsFixed(6),
+      'velocidad_kmh': double.parse(speedKmh.toStringAsFixed(1)),
+      'precision_metros': double.parse(position.accuracy.toStringAsFixed(1)),
+      'timestamp': position.timestamp.toUtc().toIso8601String(),
+    });
+    _apiService.saveOfflineQueue(_offlinePointsQueue);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _vaciarColaOffline() async {
+    if (_offlinePointsQueue.isEmpty) return;
+    final exito = await _apiService.sincronizarLote(List<Map<String, dynamic>>.from(_offlinePointsQueue));
+    if (!exito) return;
+    _offlinePointsQueue.clear();
+    await _apiService.saveOfflineQueue(_offlinePointsQueue);
+    if (mounted) setState(() {});
+  }
+
   String _formatElapsedTime(int totalSeconds) {
-    int hours = totalSeconds ~/ 3600;
-    int minutes = (totalSeconds % 3600) ~/ 60;
-    int seconds = totalSeconds % 60;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
@@ -128,7 +192,9 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   @override
   Widget build(BuildContext context) {
     final speed = _currentPosition != null ? (_currentPosition!.speed * 3.6).toStringAsFixed(1) : '0.0';
-    final accuracy = _currentPosition != null ? '±${_currentPosition!.accuracy.toStringAsFixed(1)} m' : 'Buscando satélites...';
+    final accuracy = _currentPosition != null
+        ? '±${_currentPosition!.accuracy.toStringAsFixed(1)} m'
+        : 'Buscando satélites...';
 
     return Scaffold(
       backgroundColor: const Color(0xFF090D16),
@@ -178,6 +244,23 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              if (_isRestoringQueue)
+                const LinearProgressIndicator(color: Color(0xFF10B981))
+              else if (_offlinePointsQueue.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0x33F59E0B),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF59E0B)),
+                  ),
+                  child: Text(
+                    '${_offlinePointsQueue.length} punto(s) GPS en cola. Se enviarán al recuperar la señal.',
+                    style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12),
+                  ),
+                ),
               const SizedBox(height: 20),
 
               // Telemetry Speedometer Card
@@ -312,18 +395,32 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
             onPressed: () async {
               final toneladas = double.tryParse(tonController.text.trim().replaceAll(',', '.'));
+              Navigator.pop(ctx);
+
               if (_offlinePointsQueue.isNotEmpty) {
-                await _apiService.sincronizarLote(List.from(_offlinePointsQueue));
-                _offlinePointsQueue.clear();
+                await _vaciarColaOffline();
               }
-              await _apiService.finalizarJornada(widget.jornadaId, toneladas: toneladas);
-              if (ctx.mounted) Navigator.pop(ctx);
+              final ok = await _apiService.finalizarJornada(widget.jornadaId, toneladas: toneladas);
+              if (!mounted) return;
+              if (!ok) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('No se pudo finalizar la jornada. Revisa tu conexión e intenta de nuevo.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                return;
+              }
+              _gpsTimer?.cancel();
+              _elapsedTimer?.cancel();
+              _isTracking = false;
+              await _apiService.saveOfflineQueue(_offlinePointsQueue);
               if (mounted) Navigator.pop(context);
             },
             child: const Text('Sí, Finalizar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
-    );
+    ).whenComplete(tonController.dispose);
   }
 }

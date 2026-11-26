@@ -8,6 +8,7 @@ class AuthProvider with ChangeNotifier {
 
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
+  String? get lastError => _apiService.lastError;
 
   AuthProvider() {
     _checkAuthStatus();

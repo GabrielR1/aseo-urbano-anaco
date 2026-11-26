@@ -1,15 +1,30 @@
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+from django.db.models import Prefetch
 from django.utils import timezone
-from rest_framework import viewsets, status
+from django.utils.dateparse import parse_datetime
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
-from .models import Jornada, PuntoGeolocalizacion, Incidencia
-from .serializers import JornadaSerializer, PuntoGeolocalizacionSerializer, IncidenciaSerializer
+
+from administracion.models import Chofer, IncentivoChofer, RegistroAuditoria, Ruta
+from security.permissions import EsAdministrador, es_administrador
+
+from .models import Incidencia, Jornada, PuntoGeolocalizacion
 from .optimizador import calcular_eficiencia_ecologica
 from .gamificacion import evaluar_y_actualizar_puntaje_chofer
-from administracion.models import Ruta, Chofer, IncentivoChofer, RegistroAuditoria
+from .serializers import (
+    IncidenciaSerializer,
+    JornadaSerializer,
+    PuntoGeolocalizacionSerializer,
+)
+from .services import serializar_camion, serializar_incidencia
+
+MAX_PUNTOS_POR_LOTE = 5000
 
 
 def _safe_decimal_coord(value):
@@ -19,16 +34,78 @@ def _safe_decimal_coord(value):
         return None
 
 
+def _safe_float(value):
+    """Normaliza valores numéricos opcionales que llegan como texto desde la app."""
+    if value is None or str(value).strip() == '':
+        return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _prefetch_puntos():
+    return Prefetch(
+        'puntos',
+        queryset=PuntoGeolocalizacion.objects.order_by('timestamp', 'id'),
+    )
+
+
+def _timestamp_offline(value):
+    """Convierte el sello de tiempo enviado por la app; si es inválido usa la hora actual."""
+    if not value:
+        return timezone.now()
+    fecha = parse_datetime(str(value))
+    if fecha is None:
+        return timezone.now()
+    if timezone.is_naive(fecha):
+        fecha = timezone.make_aware(fecha, timezone.get_current_timezone())
+    ahora = timezone.now()
+    if fecha > ahora + timedelta(minutes=5):
+        return ahora
+    return fecha
+
+
 class JornadaViewSet(viewsets.ModelViewSet):
-    queryset = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer').all()
+    queryset = Jornada.objects.all()
     serializer_class = JornadaSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Jornada.objects.select_related(
+            'vehiculo', 'ruta', 'chofer', 'chofer__usuario'
+        )
+        if self.action == 'retrieve':
+            queryset = queryset.prefetch_related(_prefetch_puntos())
+        queryset = queryset.order_by('-fecha', '-id')
+        if es_administrador(self.request.user):
+            return queryset
+        return queryset.filter(chofer__usuario=self.request.user)
+
+    def get_permissions(self):
+        # Los conductores solo consultan sus jornadas; las altas y bajas son administrativas.
+        if self.action in ('list', 'retrieve'):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), EsAdministrador()]
 
 
 class PuntoGeolocalizacionViewSet(viewsets.ModelViewSet):
     queryset = PuntoGeolocalizacion.objects.all()
     serializer_class = PuntoGeolocalizacionSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = PuntoGeolocalizacion.objects.select_related(
+            'jornada', 'jornada__chofer', 'jornada__chofer__usuario'
+        )
+        if es_administrador(self.request.user):
+            return queryset
+        return queryset.filter(jornada__chofer__usuario=self.request.user)
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve', 'create'):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), EsAdministrador()]
 
     def perform_create(self, serializer):
         punto = serializer.save()
@@ -46,12 +123,28 @@ class IncidenciaViewSet(viewsets.ModelViewSet):
     serializer_class = IncidenciaSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = Incidencia.objects.select_related(
+            'jornada', 'jornada__vehiculo', 'jornada__chofer', 'jornada__chofer__usuario'
+        )
+        if es_administrador(self.request.user):
+            return queryset
+        return queryset.filter(jornada__chofer__usuario=self.request.user)
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve', 'create'):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), EsAdministrador()]
+
 
 @extend_schema(
     summary="Sincronización Masiva GPS Offline",
-    description="Endpoint para recibir un listado de puntos GPS guardados mientras la app móvil estuvo fuera de línea.",
+    description=(
+        "Endpoint para recibir un listado de puntos GPS guardados mientras la app móvil "
+        "estuvo fuera de línea. Cada punto puede incluir su marca de tiempo original."
+    ),
     request=PuntoGeolocalizacionSerializer(many=True),
-    responses={201: dict}
+    responses={201: OpenApiTypes.OBJECT},
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -62,50 +155,98 @@ def sincronizar_puntos_lote(request):
     """
     puntos_data = request.data if isinstance(request.data, list) else request.data.get('puntos', [])
     if not isinstance(puntos_data, list):
-        return Response({'detail': 'Se esperaba un listado de objetos JSON de puntos GPS.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'detail': 'Se esperaba un listado de objetos JSON de puntos GPS.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if len(puntos_data) > MAX_PUNTOS_POR_LOTE:
+        return Response(
+            {'detail': f'El lote excede el máximo de {MAX_PUNTOS_POR_LOTE} puntos.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Resolver en una sola consulta las jornadas válidas para el usuario.
+    ids_solicitados = set()
+    for item in puntos_data:
+        if isinstance(item, dict):
+            jornada_id = str(item.get('jornada') or '')
+            if jornada_id.isdigit():
+                ids_solicitados.add(int(jornada_id))
+
+    jornadas_qs = Jornada.objects.filter(id__in=ids_solicitados)
+    if not es_administrador(request.user):
+        jornadas_qs = jornadas_qs.filter(chofer__usuario=request.user)
+    ids_permitidos = {str(pk) for pk in jornadas_qs.values_list('id', flat=True)}
 
     objetos_crear = []
     jornadas_tocadas = set()
+    descartados = 0
+
     for item in puntos_data:
-        jornada_id = item.get('jornada')
+        if not isinstance(item, dict):
+            descartados += 1
+            continue
+        jornada_id = str(item.get('jornada') or '')
         lat = _safe_decimal_coord(item.get('latitud'))
         lng = _safe_decimal_coord(item.get('longitud'))
-        if jornada_id and lat is not None and lng is not None:
-            objetos_crear.append(PuntoGeolocalizacion(
-                jornada_id=jornada_id,
+        if not (
+            jornada_id in ids_permitidos
+            and lat is not None
+            and lng is not None
+            and Decimal('-90') <= lat <= Decimal('90')
+            and Decimal('-180') <= lng <= Decimal('180')
+        ):
+            descartados += 1
+            continue
+
+        objetos_crear.append(
+            PuntoGeolocalizacion(
+                jornada_id=int(jornada_id),
                 latitud=lat,
                 longitud=lng,
-                precision_metros=item.get('precision_metros'),
-                velocidad_kmh=item.get('velocidad_kmh')
-            ))
-            jornadas_tocadas.add(jornada_id)
-
-    if objetos_crear:
-        PuntoGeolocalizacion.objects.bulk_create(objetos_crear)
-        Jornada.objects.filter(id__in=jornadas_tocadas, estado='pendiente').update(
-            estado='en_curso',
-            inicio_real=timezone.now()
+                precision_metros=_safe_float(item.get('precision_metros')),
+                velocidad_kmh=_safe_float(item.get('velocidad_kmh')),
+                timestamp=_timestamp_offline(item.get('timestamp')),
+            )
         )
-        return Response({
+        jornadas_tocadas.add(int(jornada_id))
+
+    if not objetos_crear:
+        return Response(
+            {'detail': 'No se encontraron registros de GPS válidos para procesar.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    PuntoGeolocalizacion.objects.bulk_create(objetos_crear)
+    Jornada.objects.filter(id__in=jornadas_tocadas, estado='pendiente').update(
+        estado='en_curso', inicio_real=timezone.now()
+    )
+
+    return Response(
+        {
             'mensaje': f'¡Se sincronizaron con éxito {len(objetos_crear)} puntos GPS!',
-            'procesados': len(objetos_crear)
-        }, status=status.HTTP_201_CREATED)
-    else:
-        return Response({'detail': 'No se encontraron registros de GPS válidos para procesar.'}, status=status.HTTP_400_BAD_REQUEST)
+            'procesados': len(objetos_crear),
+            'descartados': descartados,
+        },
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @extend_schema(
     summary="Jornadas Asignadas del Conductor",
-    description="Devuelve las jornadas en curso y pendientes asignadas al conductor autenticado (o todas si es administrador).",
-    responses={200: dict}
+    description=(
+        "Devuelve las jornadas en curso y pendientes asignadas al conductor autenticado "
+        "(o todas si es administrador)."
+    ),
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def mis_jornadas(request):
-    qs = Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario').filter(
-        estado__in=['en_curso', 'pendiente']
-    )
-    if not (request.user.is_staff or request.user.is_superuser):
+    qs = Jornada.objects.select_related(
+        'vehiculo', 'ruta', 'chofer', 'chofer__usuario'
+    ).filter(estado__in=['en_curso', 'pendiente']).prefetch_related(_prefetch_puntos())
+    if not es_administrador(request.user):
         qs = qs.filter(chofer__usuario=request.user)
 
     # Priorizar jornadas en_curso primero, luego por fecha más reciente
@@ -113,22 +254,27 @@ def mis_jornadas(request):
 
     data = []
     for j in jornadas:
-        ultimo = j.puntos.order_by('-timestamp').first()
-        data.append({
-            'id': j.id,
-            'estado': j.estado,
-            'estado_display': j.get_estado_display(),
-            'fecha': j.fecha.strftime('%d/%m/%Y'),
-            'vehiculo_placa': j.vehiculo.placa,
-            'vehiculo_modelo': f"{j.vehiculo.marca} {j.vehiculo.modelo}",
-            'ruta_nombre': j.ruta.nombre,
-            'ruta_zona': j.ruta.zona or 'Municipio Anaco',
-            'chofer': j.chofer.usuario.get_full_name() or j.chofer.usuario.username,
-            'distancia_real_km': j.calcular_distancia_real_km(),
-            'puntos_count': j.puntos.count(),
-            'toneladas_recolectadas': float(j.toneladas_recolectadas),
-            'ultima_actualizacion': timezone.localtime(ultimo.timestamp).strftime('%H:%M:%S') if ultimo else None,
-        })
+        puntos = list(j.puntos.all())
+        ultimo = puntos[-1] if puntos else None
+        data.append(
+            {
+                'id': j.id,
+                'estado': j.estado,
+                'estado_display': j.get_estado_display(),
+                'fecha': j.fecha.strftime('%d/%m/%Y'),
+                'vehiculo_placa': j.vehiculo.placa,
+                'vehiculo_modelo': f"{j.vehiculo.marca} {j.vehiculo.modelo}",
+                'ruta_nombre': j.ruta.nombre,
+                'ruta_zona': j.ruta.zona or 'Municipio Anaco',
+                'chofer': j.chofer.usuario.get_full_name() or j.chofer.usuario.username,
+                'distancia_real_km': j.calcular_distancia_real_km(puntos=puntos),
+                'puntos_count': len(puntos),
+                'toneladas_recolectadas': float(j.toneladas_recolectadas or 0),
+                'ultima_actualizacion': (
+                    timezone.localtime(ultimo.timestamp).strftime('%H:%M:%S') if ultimo else None
+                ),
+            }
+        )
 
     return Response({'jornadas': data, 'total': len(data)}, status=status.HTTP_200_OK)
 
@@ -136,7 +282,8 @@ def mis_jornadas(request):
 @extend_schema(
     summary="Iniciar Jornada de Recolección",
     description="Cambia el estado de una jornada a 'en_curso' y registra la hora real de inicio.",
-    responses={200: dict}
+    request=None,
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -146,8 +293,11 @@ def iniciar_jornada_api(request, pk):
     except Jornada.DoesNotExist:
         return Response({'detail': 'Jornada no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
-    if not (request.user.is_staff or request.user.is_superuser or jornada.chofer.usuario_id == request.user.id):
-        return Response({'detail': 'No tienes permiso para iniciar esta jornada.'}, status=status.HTTP_403_FORBIDDEN)
+    if not (es_administrador(request.user) or jornada.chofer.usuario_id == request.user.id):
+        return Response(
+            {'detail': 'No tienes permiso para iniciar esta jornada.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     if jornada.estado != 'en_curso':
         jornada.estado = 'en_curso'
@@ -159,21 +309,35 @@ def iniciar_jornada_api(request, pk):
             usuario=request.user,
             accion='MODIFICAR',
             tabla_afectada='Jornada Asignada',
-            detalles=f"Inicio real de jornada #{jornada.id} ({jornada.ruta.nombre}) con unidad [{jornada.vehiculo.placa}] desde dispositivo móvil."
+            detalles=(
+                f"Inicio real de jornada #{jornada.id} ({jornada.ruta.nombre}) "
+                f"con unidad [{jornada.vehiculo.placa}] desde dispositivo móvil."
+            ),
         )
 
-    return Response({
-        'mensaje': 'Jornada iniciada. Transmitiendo GPS en tiempo real.',
-        'jornada_id': jornada.id,
-        'estado': jornada.estado,
-        'inicio_real': timezone.localtime(jornada.inicio_real).strftime('%d/%m/%Y %H:%M:%S') if jornada.inicio_real else None,
-    }, status=status.HTTP_200_OK)
+    return Response(
+        {
+            'mensaje': 'Jornada iniciada. Transmitiendo GPS en tiempo real.',
+            'jornada_id': jornada.id,
+            'estado': jornada.estado,
+            'inicio_real': (
+                timezone.localtime(jornada.inicio_real).strftime('%d/%m/%Y %H:%M:%S')
+                if jornada.inicio_real
+                else None
+            ),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @extend_schema(
     summary="Finalizar Jornada de Recolección",
-    description="Cierra una jornada en curso, guarda toneladas reales recolectadas y actualiza el puntaje del chofer.",
-    responses={200: dict}
+    description=(
+        "Cierra una jornada en curso, guarda toneladas reales recolectadas y actualiza "
+        "el puntaje del chofer."
+    ),
+    request=OpenApiTypes.OBJECT,
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -183,18 +347,33 @@ def finalizar_jornada_api(request, pk):
     except Jornada.DoesNotExist:
         return Response({'detail': 'Jornada no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
-    if not (request.user.is_staff or request.user.is_superuser or jornada.chofer.usuario_id == request.user.id):
-        return Response({'detail': 'No tienes permiso para finalizar esta jornada.'}, status=status.HTTP_403_FORBIDDEN)
+    if not (es_administrador(request.user) or jornada.chofer.usuario_id == request.user.id):
+        return Response(
+            {'detail': 'No tienes permiso para finalizar esta jornada.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if jornada.estado == 'finalizada':
+        return Response(
+            {'detail': 'La jornada ya se encuentra finalizada.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     toneladas_raw = request.data.get('toneladas_recolectadas')
     if toneladas_raw is not None and str(toneladas_raw).strip() != '':
         try:
             toneladas = Decimal(str(toneladas_raw)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             if toneladas < 0:
-                return Response({'detail': 'Las toneladas recolectadas no pueden ser negativas.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'detail': 'Las toneladas recolectadas no pueden ser negativas.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             jornada.toneladas_recolectadas = toneladas
         except (InvalidOperation, ValueError, TypeError):
-            return Response({'detail': 'Valor de toneladas no válido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'Valor de toneladas no válido.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     jornada.estado = 'finalizada'
     jornada.fin_real = timezone.now()
@@ -210,98 +389,76 @@ def finalizar_jornada_api(request, pk):
         accion='MODIFICAR',
         tabla_afectada='Jornada Asignada',
         detalles=(
-            f"Finalización de jornada #{jornada.id} ({jornada.ruta.nombre}) unidad [{jornada.vehiculo.placa}]. "
-            f"Distancia real GPS: {distancia_real} Km | Recolección registrada: {jornada.toneladas_recolectadas} Ton."
-        )
+            f"Finalización de jornada #{jornada.id} ({jornada.ruta.nombre}) unidad "
+            f"[{jornada.vehiculo.placa}]. Distancia real GPS: {distancia_real} Km | "
+            f"Recolección registrada: {jornada.toneladas_recolectadas} Ton."
+        ),
     )
 
-    return Response({
-        'mensaje': 'Jornada finalizada y métricas reales registradas.',
-        'jornada_id': jornada.id,
-        'estado': jornada.estado,
-        'distancia_real_km': distancia_real,
-        'toneladas_recolectadas': float(jornada.toneladas_recolectadas),
-        'fin_real': timezone.localtime(jornada.fin_real).strftime('%d/%m/%Y %H:%M:%S'),
-    }, status=status.HTTP_200_OK)
+    return Response(
+        {
+            'mensaje': 'Jornada finalizada y métricas reales registradas.',
+            'jornada_id': jornada.id,
+            'estado': jornada.estado,
+            'distancia_real_km': distancia_real,
+            'toneladas_recolectadas': float(jornada.toneladas_recolectadas),
+            'fin_real': timezone.localtime(jornada.fin_real).strftime('%d/%m/%Y %H:%M:%S'),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @extend_schema(
     summary="Datos de Monitoreo GPS en Vivo y Telemetría",
-    description="Devuelve el estado real en tiempo real de los camiones en ruta, histórico de puntos GPS e incidencias activas.",
-    responses={200: dict}
+    description=(
+        "Devuelve el estado real en tiempo real de los camiones en ruta, histórico de "
+        "puntos GPS e incidencias activas. Uso exclusivo del panel administrativo."
+    ),
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, EsAdministrador])
 def monitoreo_en_vivo(request):
     """
     Devuelve las jornadas activas y pendientes, la última posición GPS real de cada camión,
     velocidad, trayectoria real (breadcrumbs), distancia recorrida real e incidencias.
     """
-    jornadas_qs = Jornada.objects.select_related(
-        'vehiculo', 'ruta', 'chofer', 'chofer__usuario'
-    ).filter(estado__in=['en_curso', 'pendiente']).order_by('-id')
+    jornadas_qs = (
+        Jornada.objects.select_related('vehiculo', 'ruta', 'chofer', 'chofer__usuario')
+        .filter(estado__in=['en_curso', 'pendiente'])
+        .prefetch_related(_prefetch_puntos())
+        .order_by('-id')
+    )
 
-    camiones = []
-    for j in jornadas_qs:
-        puntos_queryset = list(j.puntos.order_by('-timestamp', '-id')[:120])
-        ultimo_punto = puntos_queryset[0] if puntos_queryset else None
+    camiones = [serializar_camion(j) for j in jornadas_qs]
 
-        trayectoria = [[float(p.latitud), float(p.longitud)] for p in reversed(puntos_queryset)]
-
-        camiones.append({
-            'jornada_id': j.id,
-            'vehiculo': f"{j.vehiculo.marca} {j.vehiculo.modelo} ({j.vehiculo.placa})",
-            'modelo': f"{j.vehiculo.marca} {j.vehiculo.modelo}",
-            'placa': j.vehiculo.placa,
-            'ruta': j.ruta.nombre,
-            'zona': j.ruta.zona or 'Municipio Anaco',
-            'chofer': j.chofer.usuario.get_full_name() or j.chofer.usuario.username,
-            'estado': j.estado,
-            'estado_display': j.get_estado_display(),
-            'tiene_gps': ultimo_punto is not None,
-            'latitud': float(ultimo_punto.latitud) if ultimo_punto else None,
-            'longitud': float(ultimo_punto.longitud) if ultimo_punto else None,
-            'velocidad_kmh': round(float(ultimo_punto.velocidad_kmh or 0.0), 1) if ultimo_punto else 0.0,
-            'precision_metros': round(float(ultimo_punto.precision_metros), 1) if (ultimo_punto and ultimo_punto.precision_metros is not None) else None,
-            'distancia_real_km': j.calcular_distancia_real_km(),
-            'puntos_count': j.puntos.count(),
-            'trayectoria': trayectoria,
-            'ultima_actualizacion': timezone.localtime(ultimo_punto.timestamp).strftime('%H:%M:%S') if ultimo_punto else None,
-        })
-
-    incidencias_qs = Incidencia.objects.select_related('jornada', 'jornada__vehiculo').order_by('-timestamp')[:25]
-    incidencias_data = []
-    for inc in incidencias_qs:
-        incidencias_data.append({
-            'id': inc.id,
-            'jornada_id': inc.jornada_id,
-            'vehiculo_placa': inc.jornada.vehiculo.placa if inc.jornada and inc.jornada.vehiculo else "S/V",
-            'descripcion': inc.descripcion,
-            'latitud': float(inc.latitud) if inc.latitud is not None else None,
-            'longitud': float(inc.longitud) if inc.longitud is not None else None,
-            'estado': inc.estado,
-            'estado_display': inc.get_estado_display(),
-            'foto_url': inc.foto.url if inc.foto else None,
-            'resolucion_detalles': inc.resolucion_detalles,
-            'timestamp': timezone.localtime(inc.timestamp).strftime('%d/%m/%Y %H:%M'),
-        })
+    incidencias_qs = (
+        Incidencia.objects.select_related('jornada', 'jornada__vehiculo')
+        .order_by('-timestamp')[:25]
+    )
+    incidencias_data = [serializar_incidencia(inc) for inc in incidencias_qs]
 
     activos_con_gps = sum(1 for c in camiones if c['tiene_gps'])
 
-    return Response({
-        'camiones_activos': camiones,
-        'total_activos': len(camiones),
-        'total_con_gps': activos_con_gps,
-        'incidencias': incidencias_data,
-        'incidencias_pendientes': sum(1 for i in incidencias_data if i['estado'] == 'pendiente'),
-        'hora_servidor': timezone.localtime(timezone.now()).strftime('%H:%M:%S'),
-    })
+    return Response(
+        {
+            'camiones_activos': camiones,
+            'total_activos': len(camiones),
+            'total_con_gps': activos_con_gps,
+            'incidencias': incidencias_data,
+            'incidencias_pendientes': sum(
+                1 for i in incidencias_data if i['estado'] == 'pendiente'
+            ),
+            'hora_servidor': timezone.localtime(timezone.now()).strftime('%H:%M:%S'),
+        }
+    )
 
 
 @extend_schema(
     summary="Gestionar / Resolver Incidencia",
     description="Actualiza el estado operativo y notas de una incidencia.",
-    responses={200: dict}
+    request=OpenApiTypes.OBJECT,
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -310,100 +467,133 @@ def gestionar_incidencia_api(request, pk):
     Permite actualizar el estado de una incidencia (en_atencion o resuelta) y registrar notas.
     """
     try:
-        inc = Incidencia.objects.get(pk=pk)
-        nuevo_estado = request.data.get('estado')
-        detalles = request.data.get('resolucion_detalles', '')
-
-        if nuevo_estado in ['pendiente', 'en_atencion', 'resuelta']:
-            inc.estado = nuevo_estado
-            if detalles:
-                inc.resolucion_detalles = detalles
-            if nuevo_estado == 'resuelta':
-                inc.resuelta_en = timezone.now()
-            inc.save()
-            return Response({'mensaje': f'Incidencia actualizada a {inc.get_estado_display()}', 'estado': inc.estado})
-        else:
-            return Response({'detail': 'Estado no válido.'}, status=status.HTTP_400_BAD_REQUEST)
+        inc = Incidencia.objects.select_related(
+            'jornada', 'jornada__chofer', 'jornada__chofer__usuario'
+        ).get(pk=pk)
     except Incidencia.DoesNotExist:
         return Response({'detail': 'Incidencia no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not (
+        es_administrador(request.user)
+        or (inc.jornada and inc.jornada.chofer.usuario_id == request.user.id)
+    ):
+        return Response(
+            {'detail': 'No tienes permiso para gestionar esta incidencia.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    nuevo_estado = request.data.get('estado')
+    detalles = request.data.get('resolucion_detalles', '')
+
+    if nuevo_estado not in ['pendiente', 'en_atencion', 'resuelta']:
+        return Response({'detail': 'Estado no válido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    inc.estado = nuevo_estado
+    if detalles:
+        inc.resolucion_detalles = detalles
+    inc.resuelta_en = timezone.now() if nuevo_estado == 'resuelta' else None
+    inc.save(update_fields=['estado', 'resolucion_detalles', 'resuelta_en'])
+
+    return Response(
+        {'mensaje': f'Incidencia actualizada a {inc.get_estado_display()}', 'estado': inc.estado}
+    )
 
 
 @extend_schema(
     summary="Cálculo de Eficiencia Ecológica y CO2 de una Ruta",
-    description="Devuelve el consumo proyectado de litros, costo en USD y estimación de emisiones de CO2 reducidas.",
-    responses={200: dict}
+    description=(
+        "Devuelve el consumo proyectado de litros, costo en USD y estimación de "
+        "emisiones de CO2 reducidas."
+    ),
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def optimizar_ruta_api(request, pk):
     try:
         ruta = Ruta.objects.get(pk=pk)
-        analisis = calcular_eficiencia_ecologica(ruta.distancia_estimada_km)
-        analisis['ruta'] = ruta.nombre
-        analisis['zona'] = ruta.zona
-        return Response(analisis, status=status.HTTP_200_OK)
     except Ruta.DoesNotExist:
         return Response({'detail': 'Ruta no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    analisis = calcular_eficiencia_ecologica(ruta.distancia_estimada_km)
+    analisis['ruta'] = ruta.nombre
+    analisis['zona'] = ruta.zona
+    return Response(analisis, status=status.HTTP_200_OK)
 
 
 @extend_schema(
     summary="Notificaciones y Alertas para Conductor",
-    description="Devuelve las notificaciones activas de jornadas asignadas para el chofer autenticado.",
-    responses={200: dict}
+    description=(
+        "Devuelve las notificaciones activas de jornadas asignadas para el chofer autenticado."
+    ),
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def notificaciones_chofer(request):
     jornadas_pendientes = Jornada.objects.select_related('ruta', 'vehiculo').filter(
         chofer__usuario=request.user,
-        estado__in=['en_curso', 'pendiente']
+        estado__in=['en_curso', 'pendiente'],
     ).order_by('-fecha', '-id')
 
     notificaciones = []
     for j in jornadas_pendientes:
         titulo = '🟢 Jornada en Curso' if j.estado == 'en_curso' else '🌿 Nueva Jornada Asignada'
-        notificaciones.append({
-            'id': j.id,
-            'titulo': titulo,
-            'mensaje': f"Ruta '{j.ruta.nombre}' ({j.ruta.zona}) en el vehículo {j.vehiculo.placa}.",
-            'fecha': j.fecha.strftime('%d/%m/%Y'),
-            'estado': j.estado
-        })
+        notificaciones.append(
+            {
+                'id': j.id,
+                'titulo': titulo,
+                'mensaje': f"Ruta '{j.ruta.nombre}' ({j.ruta.zona}) en el vehículo {j.vehiculo.placa}.",
+                'fecha': j.fecha.strftime('%d/%m/%Y'),
+                'estado': j.estado,
+            }
+        )
 
     return Response({'notificaciones': notificaciones, 'total': len(notificaciones)})
 
 
 @extend_schema(
     summary="Gamificación y Perfil de Puntos del Chofer",
-    description="Devuelve el nivel, puntos acumulados, kilómetros reales recorridos e insignias obtenidas por el conductor.",
-    responses={200: dict}
+    description=(
+        "Devuelve el nivel, puntos acumulados, kilómetros reales recorridos e insignias "
+        "obtenidas por el conductor."
+    ),
+    responses={200: OpenApiTypes.OBJECT},
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def chofer_gamificacion_api(request):
     chofer = Chofer.objects.filter(usuario=request.user).first()
     if not chofer:
-        return Response({'detail': 'El usuario autenticado no tiene perfil de conductor asignado.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {'detail': 'El usuario autenticado no tiene perfil de conductor asignado.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
     puntaje = evaluar_y_actualizar_puntaje_chofer(chofer)
     insignias = IncentivoChofer.objects.filter(chofer=chofer).order_by('-otorgado_en')
 
     insignias_list = []
     for inc in insignias:
-        insignias_list.append({
-            'id': inc.id,
-            'titulo': inc.titulo,
-            'descripcion': inc.descripcion,
-            'insignia': inc.get_tipo_insignia_display(),
-            'bono_usd': float(inc.monto_bono_usd),
-            'fecha': inc.otorgado_en.strftime('%d/%m/%Y')
-        })
+        insignias_list.append(
+            {
+                'id': inc.id,
+                'titulo': inc.titulo,
+                'descripcion': inc.descripcion,
+                'insignia': inc.get_tipo_insignia_display(),
+                'bono_usd': float(inc.monto_bono_usd),
+                'fecha': inc.otorgado_en.strftime('%d/%m/%Y'),
+            }
+        )
 
-    return Response({
-        'chofer': chofer.usuario.get_full_name() or chofer.usuario.username,
-        'puntos_totales': puntaje.puntos_totales,
-        'km_recorridos_totales': float(puntaje.km_recorridos_totales),
-        'jornadas_exitosas': puntaje.jornadas_exitosas,
-        'nivel': puntaje.get_nivel_display(),
-        'insignias': insignias_list
-    }, status=status.HTTP_200_OK)
+    return Response(
+        {
+            'chofer': chofer.usuario.get_full_name() or chofer.usuario.username,
+            'puntos_totales': puntaje.puntos_totales,
+            'km_recorridos_totales': float(puntaje.km_recorridos_totales),
+            'jornadas_exitosas': puntaje.jornadas_exitosas,
+            'nivel': puntaje.get_nivel_display(),
+            'insignias': insignias_list,
+        },
+        status=status.HTTP_200_OK,
+    )

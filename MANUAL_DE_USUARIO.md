@@ -20,6 +20,8 @@ EcoRuta consta de dos módulos integrados:
 - **URL Panel Admin Django**: [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
 - **Credenciales por defecto**:
   - **Administrador**: Usuario `admin` | Contraseña `admin123`
+  - **Conductores de prueba**: `chofer1`, `chofer2`, `chofer3` | Contraseña `chofer123`
+- **Nota de seguridad**: el panel administrativo solo acepta cuentas con rol `admin`/`is_staff`. Un conductor que intente abrir `/dashboard/` será redirigido a su panel móvil `/chofer/`. Los accesos de demostración se ocultan con `DEBUG=False`.
 
 ---
 
@@ -74,7 +76,7 @@ EcoRuta consta de dos módulos integrados:
 ### 🚚 3.2 Iniciar y Ejecutar Jornada
 1. En la pantalla principal, presiona **"Iniciar Jornada"**.
 2. La app solicitará permisos de ubicación GPS. Al aceptarlos, se activará el **rastreo en tiempo real**.
-3. Las coordenadas (latitud y longitud) se enviarán automáticamente cada 15 segundos al servidor central.
+3. Las coordenadas (latitud y longitud) se enviarán automáticamente cada 10 segundos al servidor central.
 
 ---
 
@@ -254,10 +256,10 @@ erDiagram
    - Transmisión instantánea de la ubicación GPS de los camiones al mapa Web sin sobrecarga por HTTP polling.
 3. **Algoritmos de Optimización de Rutas (OR-Tools / OSRM)**:
    - Cálculo automatizado de trayectorias con menor consumo de combustible considerando el tráfico.
-4. **Seguridad y Variables de Entorno (`.env`)**:
-   - Gestión de claves y secretos fuera de `settings.py` con `python-dotenv`.
-5. **Módulo de Reportes PDF/Excel**:
-   - Generación de reportes de consumo y efectividad semanal con **ReportLab** y **openpyxl**.
+4. **Notificaciones Push y mapas sin conexión**:
+   - Alertas nativas al chofer cuando se asigna una jornada y caché de teselas para operar en zonas sin cobertura.
+5. **Respaldo y observabilidad**:
+   - Respaldos automáticos de PostgreSQL, monitoreo de errores (Sentry) y métricas de disponibilidad del servicio.
 
 ---
 *EcoRuta v1.0 — Innovación y Eficiencia en Gestión Ecológica de Rutas*

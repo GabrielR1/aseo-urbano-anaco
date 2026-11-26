@@ -457,9 +457,18 @@
             return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
+        function escapeHtml(value) {
+            return String(value === null || value === undefined ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function showError(msg) {
             const box = document.getElementById('gpsErrorBox');
-            box.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${msg}`;
+            box.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${escapeHtml(msg)}`;
             box.style.display = 'block';
         }
 
@@ -603,7 +612,8 @@
                 latitud: lat.toFixed(6),
                 longitud: lng.toFixed(6),
                 velocidad_kmh: speedKmh,
-                precision_metros: acc
+                precision_metros: acc,
+                timestamp: new Date().toISOString()
             };
 
             try {
@@ -632,6 +642,8 @@
             const q = getOfflineQueue();
             q.push(payload);
             saveOfflineQueue(q);
+            const queueCount = document.getElementById('queueCountValue');
+            if (queueCount) queueCount.textContent = q.length;
             document.getElementById('gpsStatusLabel').textContent = 'Sin señal • Guardando en cola offline';
         }
 
@@ -652,6 +664,8 @@
                     sentCount += q.length;
                     document.getElementById('sentCountValue').textContent = sentCount;
                     saveOfflineQueue([]);
+                    const queueCount = document.getElementById('queueCountValue');
+                    if (queueCount) queueCount.textContent = '0';
                 }
             } catch {}
         }
@@ -714,7 +728,12 @@
                     cerrarModales();
                     alert('Incidencia reportada con tu ubicación GPS real.');
                 } else {
-                    alert('No se pudo registrar la incidencia.');
+                    const err = await resp.json().catch(() => ({}));
+                    let detalle = err.detail || 'No se pudo registrar la incidencia.';
+                    if (!err.detail && err.descripcion) {
+                        detalle = 'Revisa la descripción de la incidencia.';
+                    }
+                    alert(detalle);
                 }
             } catch (e) {
                 alert('Error de conexión: ' + e.message);

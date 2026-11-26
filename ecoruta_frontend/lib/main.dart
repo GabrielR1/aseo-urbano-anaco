@@ -3,8 +3,12 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/api_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Restaura la URL del servidor configurada por el chofer antes de mostrar la app.
+  await ApiService().initServerUrl();
   runApp(
     MultiProvider(
       providers: [
