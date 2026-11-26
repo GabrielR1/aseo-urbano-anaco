@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -58,8 +59,11 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   DateTime? _lastSentAt;
   bool _isTracking = true;
   bool _sending = false;
+  bool _isFinishing = false;
+  bool _allowPop = false;
   bool _followUser = true;
   bool _satelliteMode = false;
+  bool _showShadedZone = true;
   int _secondsElapsed = 0;
   double _totalDistanceKm = 0.0;
   String? _gpsWarning;
@@ -67,6 +71,8 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   final List<Map<String, dynamic>> _offlinePointsQueue = [];
   late final List<LatLng> _routeWaypoints;
   late final List<LatLng> _traveledTrail;
+  List<LatLng> _streetRoutePoints = [];
+  List<LatLng> _zonePolygon = [];
 
   @override
   void initState() {
@@ -74,11 +80,13 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     _totalDistanceKm = widget.distanciaInicialKm;
     _routeWaypoints = widget.rutaWaypoints.map((p) => LatLng(p[0], p[1])).toList();
     _traveledTrail = widget.trayectoriaInicial.map((p) => LatLng(p[0], p[1])).toList();
+    _zonePolygon = _buildZonePolygon(_routeWaypoints);
     _startElapsedTimer();
     _inicializar();
   }
 
   Future<void> _inicializar() async {
+    unawaited(_cargarTrazadoPorCalles());
     final pendientes = await _apiService.loadOfflineQueue();
     if (!mounted) return;
     setState(() {
@@ -87,6 +95,65 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         ..addAll(pendientes);
     });
     await _startTracking();
+  }
+
+  Future<void> _cargarTrazadoPorCalles() async {
+    if (widget.rutaWaypoints.length < 2) return;
+    final streetCoords = await _apiService.getStreetRoute(widget.rutaWaypoints);
+    if (!mounted || streetCoords.length < 2) return;
+    final pts = streetCoords.map((p) => LatLng(p[0], p[1])).toList();
+    setState(() {
+      _streetRoutePoints = pts;
+      _zonePolygon = _buildZonePolygon([..._routeWaypoints, ...pts]);
+    });
+  }
+
+  /// Genera un polígono sombreado (envolvente convexa + margen de ~90 m) que resalta toda la zona asignada.
+  List<LatLng> _buildZonePolygon(List<LatLng> points) {
+    if (points.length < 3) return const [];
+    final sorted = List<LatLng>.from(points)
+      ..sort((a, b) {
+        final cmp = a.longitude.compareTo(b.longitude);
+        return cmp != 0 ? cmp : a.latitude.compareTo(b.latitude);
+      });
+
+    double cross(LatLng o, LatLng a, LatLng b) =>
+        (a.longitude - o.longitude) * (b.latitude - o.latitude) -
+        (a.latitude - o.latitude) * (b.longitude - o.longitude);
+
+    final lower = <LatLng>[];
+    for (final p in sorted) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower.last, p) <= 0) {
+        lower.removeLast();
+      }
+      lower.add(p);
+    }
+
+    final upper = <LatLng>[];
+    for (final p in sorted.reversed) {
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper.last, p) <= 0) {
+        upper.removeLast();
+      }
+      upper.add(p);
+    }
+
+    final hull = <LatLng>[
+      ...lower.sublist(0, lower.length - 1),
+      ...upper.sublist(0, upper.length - 1),
+    ];
+    if (hull.length < 3) return const [];
+
+    final cLat = hull.fold<double>(0, (s, p) => s + p.latitude) / hull.length;
+    final cLng = hull.fold<double>(0, (s, p) => s + p.longitude) / hull.length;
+    const padDeg = 0.00085; // ~90 metros de respiro visual alrededor de las calles
+
+    return hull.map((p) {
+      final dLat = p.latitude - cLat;
+      final dLng = p.longitude - cLng;
+      final norm = math.sqrt(dLat * dLat + dLng * dLng);
+      if (norm < 1e-7) return p;
+      return LatLng(p.latitude + (dLat / norm) * padDeg, p.longitude + (dLng / norm) * padDeg);
+    }).toList();
   }
 
   void _startElapsedTimer() {
@@ -297,14 +364,21 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
 
   void _verTodaLaRuta() {
     setState(() => _followUser = false);
-    final puntos = <LatLng>[
+    final puntosRuta = <LatLng>[
+      ..._zonePolygon,
+      ..._streetRoutePoints,
       ..._routeWaypoints,
-      ..._traveledTrail,
-      if (_currentPosition != null) LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
     ];
+    final puntos = puntosRuta.length >= 2
+        ? puntosRuta
+        : <LatLng>[
+            ..._routeWaypoints,
+            ..._traveledTrail,
+            if (_currentPosition != null) LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          ];
     if (puntos.length >= 2) {
       _mapController.fitCamera(
-        CameraFit.bounds(bounds: LatLngBounds.fromPoints(puntos), padding: const EdgeInsets.all(42)),
+        CameraFit.bounds(bounds: LatLngBounds.fromPoints(puntos), padding: const EdgeInsets.all(38)),
       );
     } else if (puntos.length == 1) {
       _mapController.move(puntos.first, 15.5);
@@ -440,12 +514,13 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     }
 
     return PopScope(
-      canPop: false,
+      canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
+        if (didPop || _isFinishing) return;
         final leave = await _confirmLeaveScreen();
         if (leave && context.mounted) {
-          Navigator.pop(context);
+          setState(() => _allowPop = true);
+          Navigator.of(context).pop();
         }
       },
       child: Scaffold(
@@ -570,13 +645,30 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                                 maxZoom: 19,
                                 userAgentPackageName: 'com.aseourbanoanaco.chofer',
                               ),
+                              if (_showShadedZone && _zonePolygon.length >= 3)
+                                PolygonLayer(
+                                  polygons: [
+                                    Polygon(
+                                      points: _zonePolygon,
+                                      color: const Color(0x281D4ED8),
+                                      borderColor: const Color(0xBB1D4ED8),
+                                      borderStrokeWidth: 2.2,
+                                    ),
+                                  ],
+                                ),
                               PolylineLayer(
                                 polylines: [
-                                  if (_routeWaypoints.length >= 2)
+                                  if ((_streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints).length >= 2)
                                     Polyline(
-                                      points: _routeWaypoints,
-                                      color: const Color(0xAA1D4ED8),
-                                      strokeWidth: 5.0,
+                                      points: _streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints,
+                                      color: const Color(0xCCFFFFFF),
+                                      strokeWidth: 7.5,
+                                    ),
+                                  if ((_streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints).length >= 2)
+                                    Polyline(
+                                      points: _streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints,
+                                      color: const Color(0xFF1D4ED8),
+                                      strokeWidth: 4.8,
                                     ),
                                   if (_traveledTrail.length >= 2)
                                     Polyline(
@@ -657,46 +749,130 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                               ),
                             ),
                           ),
-                          // Cambio rápido entre mapa de calles y vista satelital
+                          // Cambio rápido: zona sombreada y vista satelital
                           Positioned(
                             top: 10,
                             right: 10,
-                            child: Material(
-                              color: colors.surface.withValues(alpha: 0.94),
-                              borderRadius: BorderRadius.circular(10),
-                              elevation: 2,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(10),
-                                onTap: () => setState(() => _satelliteMode = !_satelliteMode),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_zonePolygon.length >= 3) ...[
+                                  Material(
+                                    color: _showShadedZone
+                                        ? const Color(0xFF1D4ED8)
+                                        : colors.surface.withValues(alpha: 0.94),
                                     borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: colors.outline.withValues(alpha: 0.6)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _satelliteMode ? Icons.map_rounded : Icons.satellite_alt_rounded,
-                                        size: 16,
-                                        color: colors.primary,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _satelliteMode ? 'Calles' : 'Satélite',
-                                        style: TextStyle(
-                                          color: colors.onSurface,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
+                                    elevation: 2,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(10),
+                                      onTap: () => setState(() => _showShadedZone = !_showShadedZone),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: _showShadedZone
+                                                ? const Color(0xFF1D4ED8)
+                                                : colors.outline.withValues(alpha: 0.6),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.layers_rounded,
+                                              size: 15,
+                                              color: _showShadedZone ? Colors.white : const Color(0xFF1D4ED8),
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              'Zona',
+                                              style: TextStyle(
+                                                color: _showShadedZone ? Colors.white : colors.onSurface,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                Material(
+                                  color: colors.surface.withValues(alpha: 0.94),
+                                  borderRadius: BorderRadius.circular(10),
+                                  elevation: 2,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () => setState(() => _satelliteMode = !_satelliteMode),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: colors.outline.withValues(alpha: 0.6)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _satelliteMode ? Icons.map_rounded : Icons.satellite_alt_rounded,
+                                            size: 16,
+                                            color: colors.primary,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _satelliteMode ? 'Calles' : 'Satélite',
+                                            style: TextStyle(
+                                              color: colors.onSurface,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Acceso directo abajo a la izquierda para encuadrar la ruta y zona asignada
+                          if (_routeWaypoints.isNotEmpty)
+                            Positioned(
+                              left: 10,
+                              bottom: 10,
+                              child: Material(
+                                color: const Color(0xFF1D4ED8),
+                                elevation: 3,
+                                borderRadius: BorderRadius.circular(12),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: _verTodaLaRuta,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.alt_route_rounded, color: Colors.white, size: 17),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          (widget.rutaZona != null && widget.rutaZona!.isNotEmpty)
+                                              ? 'Ver ruta (${widget.rutaZona})'
+                                              : 'Ver ruta asignada',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
                           // Controles flotantes del mapa a la derecha
                           Positioned(
                             right: 10,
@@ -837,10 +1013,16 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                 ),
                 const SizedBox(height: 10),
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.flag_rounded, size: 22),
-                  label: const Text(
-                    'Finalizar ruta',
-                    style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+                  icon: _isFinishing
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: colors.onPrimary, strokeWidth: 2.4),
+                        )
+                      : const Icon(Icons.flag_rounded, size: 22),
+                  label: Text(
+                    _isFinishing ? 'Finalizando ruta...' : 'Finalizar ruta',
+                    style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
                   ),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 54),
@@ -849,7 +1031,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: _confirmFinishJourney,
+                  onPressed: _isFinishing ? null : _confirmFinishJourney,
                 ),
               ],
             ),
@@ -917,10 +1099,12 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     );
   }
 
-  void _confirmFinishJourney() {
-    final tonController = TextEditingController();
+  Future<void> _confirmFinishJourney() async {
+    if (_isFinishing) return;
+    String toneladasTexto = '';
     final colors = Theme.of(context).colorScheme;
-    showDialog(
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Terminaste la ruta?', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -930,10 +1114,10 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
           children: [
             const Text('Se guardará el recorrido completado y se detendrá el GPS.'),
             const SizedBox(height: 14),
-            TextField(
-              controller: tonController,
+            TextFormField(
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(fontSize: 16),
+              onChanged: (value) => toneladasTexto = value,
               decoration: InputDecoration(
                 labelText: 'Toneladas recolectadas (opcional)',
                 hintText: 'Ej. 4.5',
@@ -945,7 +1129,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Seguir'),
           ),
           ElevatedButton(
@@ -953,44 +1137,73 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
               backgroundColor: colors.primary,
               foregroundColor: colors.onPrimary,
             ),
-            onPressed: () async {
-              final toneladas = double.tryParse(tonController.text.trim().replaceAll(',', '.'));
-              Navigator.pop(ctx);
-
-              if (_offlinePointsQueue.isNotEmpty) {
-                await _vaciarColaOffline();
-              }
-              final ok = await _apiService.finalizarJornada(widget.jornadaId, toneladas: toneladas);
-              if (!mounted) return;
-              if (_apiService.sessionExpired) {
-                await _positionSub?.cancel();
-                _elapsedTimer?.cancel();
-                if (!mounted) return;
-                await context.read<AuthProvider>().logout(
-                      notice: 'Tu sesión venció. Inicia sesión nuevamente.',
-                    );
-                return;
-              }
-              if (!ok) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('No se pudo finalizar la ruta. Revisa tu conexión e intenta de nuevo.'),
-                    backgroundColor: Colors.red.shade700,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-                return;
-              }
-              await _positionSub?.cancel();
-              _elapsedTimer?.cancel();
-              _isTracking = false;
-              await _apiService.saveOfflineQueue(_offlinePointsQueue);
-              if (mounted) Navigator.pop(context);
+            onPressed: () {
+              final clean = toneladasTexto.trim().replaceAll(',', '.');
+              final parsed = clean.isEmpty ? null : double.tryParse(clean);
+              Navigator.of(ctx).pop({'confirmed': true, 'toneladas': parsed});
             },
             child: const Text('Finalizar', style: TextStyle(fontWeight: FontWeight.w800)),
           ),
         ],
       ),
-    ).whenComplete(tonController.dispose);
+    );
+
+    if (!mounted || result == null || result['confirmed'] != true) return;
+
+    setState(() => _isFinishing = true);
+
+    try {
+      if (_offlinePointsQueue.isNotEmpty) {
+        try {
+          await _vaciarColaOffline().timeout(const Duration(seconds: 8));
+        } catch (_) {}
+      }
+
+      final toneladas = result['toneladas'] as double?;
+      final ok = await _apiService.finalizarJornada(widget.jornadaId, toneladas: toneladas);
+      if (!mounted) return;
+
+      if (_apiService.sessionExpired) {
+        await _positionSub?.cancel();
+        _elapsedTimer?.cancel();
+        if (!mounted) return;
+        await context.read<AuthProvider>().logout(
+              notice: 'Tu sesión venció. Inicia sesión nuevamente.',
+            );
+        return;
+      }
+
+      if (!ok) {
+        setState(() => _isFinishing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_apiService.lastError ?? 'No se pudo finalizar la ruta. Revisa tu conexión e intenta de nuevo.'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      await _positionSub?.cancel();
+      _elapsedTimer?.cancel();
+      _isTracking = false;
+      await _apiService.saveOfflineQueue(_offlinePointsQueue);
+      if (!mounted) return;
+      setState(() => _allowPop = true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      debugPrint('Error al finalizar ruta: $e');
+      if (mounted) {
+        setState(() => _isFinishing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Ocurrió un error al finalizar la ruta. Intenta nuevamente.'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }

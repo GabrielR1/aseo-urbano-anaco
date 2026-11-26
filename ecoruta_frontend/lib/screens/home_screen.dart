@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return out;
     }
 
-    await Navigator.push(
+    final finished = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => RouteActiveScreen(
@@ -105,7 +105,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    if (mounted) _loadData();
+    if (!mounted) return;
+    if (finished == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('¡Ruta finalizada y registrada con éxito!'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    _loadData();
   }
 
   Future<void> _confirmLogout(AuthProvider auth) async {

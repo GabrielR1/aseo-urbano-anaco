@@ -184,6 +184,7 @@ class ApiService {
   }
 
   Future<bool> finalizarJornada(int jornadaId, {double? toneladas}) async {
+    lastError = null;
     sessionExpired = false;
     try {
       final payload = <String, dynamic>{};
@@ -199,12 +200,62 @@ class ApiService {
           .timeout(_timeout);
       if (response.statusCode == 401) {
         sessionExpired = true;
+        lastError = 'Tu sesión venció. Inicia sesión nuevamente.';
         return false;
       }
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        return true;
+      }
+      try {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map && data['detail'] != null) {
+          final detail = data['detail'].toString();
+          if (response.statusCode == 400 && detail.toLowerCase().contains('finalizada')) {
+            return true;
+          }
+          lastError = detail;
+          return false;
+        }
+      } catch (_) {}
+      lastError = 'No se pudo finalizar la ruta (código ${response.statusCode}).';
+      return false;
+    } on TimeoutException {
+      lastError = 'El servidor tardó demasiado en responder. Intenta nuevamente.';
+      return false;
     } catch (e) {
       debugPrint('Error finalizando jornada: $e');
+      lastError = 'No se pudo conectar con el servidor. Revisa tu conexión.';
       return false;
+    }
+  }
+
+  /// Obtiene el trazado real calle por calle (OSRM gratuito, sin API key) para los waypoints de la ruta.
+  Future<List<List<double>>> getStreetRoute(List<List<double>> waypoints) async {
+    if (waypoints.length < 2) return const [];
+    try {
+      final coords = waypoints.take(25).map((p) => '${p[1]},${p[0]}').join(';');
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/$coords?overview=full&geometries=geojson',
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return const [];
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      if (data is! Map || data['code'] != 'Ok') return const [];
+      final routes = data['routes'];
+      if (routes is! List || routes.isEmpty) return const [];
+      final geometry = routes.first['geometry'];
+      final rawCoords = geometry is Map ? geometry['coordinates'] : null;
+      if (rawCoords is! List) return const [];
+      final out = <List<double>>[];
+      for (final c in rawCoords) {
+        if (c is List && c.length >= 2 && c[0] is num && c[1] is num) {
+          out.add([(c[1] as num).toDouble(), (c[0] as num).toDouble()]);
+        }
+      }
+      return out;
+    } catch (e) {
+      debugPrint('No se pudo calcular trazado por calles OSRM: $e');
+      return const [];
     }
   }
 

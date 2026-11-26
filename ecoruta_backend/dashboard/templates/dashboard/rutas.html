@@ -167,8 +167,63 @@
 
     let rutaEditorMap = null;
     let rutaEditorLine = null;
+    let rutaEditorZone = null;
     let rutaEditorMarkers = [];
     let rutaEditorPoints = [];
+    let rutaEditorOsrmReqId = 0;
+
+    function buildZoneHullEditor(pts) {
+        if (!pts || pts.length < 3) return [];
+        const sorted = [...pts].sort((a, b) => (a[1] - b[1]) || (a[0] - b[0]));
+        const cross = (o, a, b) => (a[1] - o[1]) * (b[0] - o[0]) - (a[0] - o[0]) * (b[1] - o[1]);
+        const lower = [];
+        for (const p of sorted) {
+            while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+            lower.push(p);
+        }
+        const upper = [];
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            const p = sorted[i];
+            while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+            upper.push(p);
+        }
+        const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
+        if (hull.length < 3) return [];
+        const cLat = hull.reduce((s, p) => s + p[0], 0) / hull.length;
+        const cLng = hull.reduce((s, p) => s + p[1], 0) / hull.length;
+        const pad = 0.00085;
+        return hull.map(p => {
+            const dLat = p[0] - cLat;
+            const dLng = p[1] - cLng;
+            const norm = Math.hypot(dLat, dLng);
+            return norm < 1e-7 ? p : [p[0] + (dLat / norm) * pad, p[1] + (dLng / norm) * pad];
+        });
+    }
+
+    function dibujarZonaYCallesEditor(linePts) {
+        if (!rutaEditorMap) return;
+        if (rutaEditorLine) {
+            rutaEditorLine.setLatLngs(linePts);
+        } else {
+            rutaEditorLine = L.polyline(linePts, { color: '#1d4ed8', weight: 4.5, opacity: 0.9 }).addTo(rutaEditorMap);
+        }
+        const hull = buildZoneHullEditor(linePts.length >= 3 ? linePts : rutaEditorPoints);
+        if (hull.length >= 3) {
+            if (rutaEditorZone) {
+                rutaEditorZone.setLatLngs(hull);
+            } else {
+                rutaEditorZone = L.polygon(hull, {
+                    color: '#1d4ed8',
+                    weight: 2,
+                    fillColor: '#1d4ed8',
+                    fillOpacity: 0.16
+                }).addTo(rutaEditorMap);
+            }
+        } else if (rutaEditorZone) {
+            rutaEditorMap.removeLayer(rutaEditorZone);
+            rutaEditorZone = null;
+        }
+    }
 
     function haversineKmEditor(p1, p2) {
         const R = 6371;
@@ -204,10 +259,23 @@
             rutaEditorMarkers.push(L.marker(pt, { icon }).addTo(rutaEditorMap));
         });
 
-        if (rutaEditorLine) {
-            rutaEditorLine.setLatLngs(rutaEditorPoints);
-        } else {
-            rutaEditorLine = L.polyline(rutaEditorPoints, { color: '#1d4ed8', weight: 4, dashArray: '6 6' }).addTo(rutaEditorMap);
+        dibujarZonaYCallesEditor(rutaEditorPoints);
+
+        if (rutaEditorPoints.length >= 2) {
+            const reqId = ++rutaEditorOsrmReqId;
+            const coords = rutaEditorPoints.slice(0, 25).map(p => `${p[1]},${p[0]}`).join(';');
+            fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (reqId !== rutaEditorOsrmReqId || !rutaEditorMap || !data || data.code !== 'Ok' || !data.routes?.length) return;
+                    const streetPts = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    dibujarZonaYCallesEditor(streetPts);
+                    const distInput = document.getElementById('rutaDistanciaInput');
+                    if (distInput && typeof data.routes[0].distance === 'number') {
+                        distInput.value = Math.max(0.2, data.routes[0].distance / 1000).toFixed(2);
+                    }
+                })
+                .catch(() => {});
         }
     }
 
@@ -254,6 +322,7 @@
             rutaEditorMap.remove();
             rutaEditorMap = null;
             rutaEditorLine = null;
+            rutaEditorZone = null;
             rutaEditorMarkers = [];
         }
 

@@ -393,8 +393,19 @@ def finalizar_jornada_api(request, pk):
 
     if jornada.estado == 'finalizada':
         return Response(
-            {'detail': 'La jornada ya se encuentra finalizada.'},
-            status=status.HTTP_400_BAD_REQUEST,
+            {
+                'mensaje': 'La jornada ya había sido finalizada.',
+                'jornada_id': jornada.id,
+                'estado': jornada.estado,
+                'distancia_real_km': jornada.calcular_distancia_real_km(),
+                'toneladas_recolectadas': float(jornada.toneladas_recolectadas or 0),
+                'fin_real': (
+                    timezone.localtime(jornada.fin_real).strftime('%d/%m/%Y %H:%M:%S')
+                    if jornada.fin_real
+                    else None
+                ),
+            },
+            status=status.HTTP_200_OK,
         )
 
     toneladas_raw = request.data.get('toneladas_recolectadas')

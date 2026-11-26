@@ -172,7 +172,11 @@ class Command(BaseCommand):
                 }
             )
             updated_fields = []
-            if not (ruta_obj.coordenadas_waypoints or '').strip():
+            try:
+                existing_wps = json.loads(ruta_obj.coordenadas_waypoints or '[]')
+            except (ValueError, TypeError):
+                existing_wps = []
+            if not isinstance(existing_wps, list) or len(existing_wps) < 2:
                 ruta_obj.coordenadas_waypoints = json.dumps(waypoints)
                 updated_fields.append('coordenadas_waypoints')
             if not (ruta_obj.descripcion or '').strip():
