@@ -223,28 +223,22 @@
             </div>
 
             <div class="dispatch-field">
-                <label for="quickVehiculo">Unidad</label>
+                <label for="quickVehiculo" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Unidad</span>
+                    <span id="quickVehBadge" style="font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px; background:#f0fdf4; color:#15803d;">Disponibles</span>
+                </label>
                 <select name="vehiculo" id="quickVehiculo" class="form-select" required>
-                    {% for v in vehiculos %}
-                    <option value="{{ v.id }}">
-                        {{ v.placa }} — {{ v.marca }}{% if v.estado != 'activo' %} ({{ v.get_estado_display }}){% elif v.id in vehiculos_ocupados_hoy %} · en turno{% endif %}
-                    </option>
-                    {% empty %}
-                    <option value="">Sin unidades</option>
-                    {% endfor %}
+                    <option value="">Cargando disponibles...</option>
                 </select>
             </div>
 
             <div class="dispatch-field">
-                <label for="quickChofer">Conductor</label>
+                <label for="quickChofer" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Conductor</span>
+                    <span id="quickChofBadge" style="font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px; background:#f0fdf4; color:#15803d;">Disponibles</span>
+                </label>
                 <select name="chofer" id="quickChofer" class="form-select" required>
-                    {% for c in choferes %}
-                    <option value="{{ c.id }}">
-                        {{ c.usuario.get_full_name|default:c.usuario.username }}{% if c.id in choferes_ocupados_hoy %} · en turno{% endif %}
-                    </option>
-                    {% empty %}
-                    <option value="">Sin conductores</option>
-                    {% endfor %}
+                    <option value="">Cargando disponibles...</option>
                 </select>
             </div>
 
@@ -254,7 +248,7 @@
             </div>
 
             <div>
-                <button type="submit" class="btn-modern btn-primary-green" style="height: 42px; padding: 0 20px; white-space: nowrap; font-weight: 800; width: 100%;">
+                <button type="submit" id="quickSubmitBtn" class="btn-modern btn-primary-green" style="height: 42px; padding: 0 20px; white-space: nowrap; font-weight: 800; width: 100%;">
                     <i class="fa-solid fa-check"></i> Asignar
                 </button>
             </div>
@@ -270,15 +264,21 @@
                 <button type="button" class="preset-chip" data-preset="mjs" onclick="aplicarPresetRapido('mjs', this)">Mar · Jue · Sáb</button>
                 <button type="button" class="preset-chip" data-preset="lv" onclick="aplicarPresetRapido('lv', this)">Lun a Vie</button>
             </div>
-            <div class="chip-group" title="Marca los días de la semana a programar a partir de la fecha base">
-                <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-right: 2px;">Días:</span>
-                <button type="button" class="day-chip" data-dow="1" onclick="toggleDiaRapido(1, this)">L</button>
-                <button type="button" class="day-chip" data-dow="2" onclick="toggleDiaRapido(2, this)">M</button>
-                <button type="button" class="day-chip" data-dow="3" onclick="toggleDiaRapido(3, this)">X</button>
-                <button type="button" class="day-chip" data-dow="4" onclick="toggleDiaRapido(4, this)">J</button>
-                <button type="button" class="day-chip" data-dow="5" onclick="toggleDiaRapido(5, this)">V</button>
-                <button type="button" class="day-chip" data-dow="6" onclick="toggleDiaRapido(6, this)">S</button>
-                <button type="button" class="day-chip" data-dow="0" onclick="toggleDiaRapido(0, this)">D</button>
+            <div class="chip-group" style="gap: 10px;">
+                <div class="chip-group" title="Marca los días de la semana a programar a partir de la fecha base">
+                    <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-right: 2px;">Días:</span>
+                    <button type="button" class="day-chip" data-dow="1" onclick="toggleDiaRapido(1, this)">L</button>
+                    <button type="button" class="day-chip" data-dow="2" onclick="toggleDiaRapido(2, this)">M</button>
+                    <button type="button" class="day-chip" data-dow="3" onclick="toggleDiaRapido(3, this)">X</button>
+                    <button type="button" class="day-chip" data-dow="4" onclick="toggleDiaRapido(4, this)">J</button>
+                    <button type="button" class="day-chip" data-dow="5" onclick="toggleDiaRapido(5, this)">V</button>
+                    <button type="button" class="day-chip" data-dow="6" onclick="toggleDiaRapido(6, this)">S</button>
+                    <button type="button" class="day-chip" data-dow="0" onclick="toggleDiaRapido(0, this)">D</button>
+                </div>
+                <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--text-muted); cursor:pointer; user-select:none;">
+                    <input type="checkbox" name="permitir_doble_turno" value="1" id="quickDobleTurno" onchange="actualizarDisponibilidadRapida()" style="accent-color:#15803d;">
+                    Permitir doble turno
+                </label>
             </div>
         </div>
     </form>
@@ -514,6 +514,20 @@
         } else {
             badge.textContent = `${fechas.length} salidas a programar (${fechas.map(formatIsoToEs).join(' · ')})`;
         }
+        actualizarDisponibilidadRapida();
+    }
+
+    function actualizarDisponibilidadRapida() {
+        sincronizarDisponibilidad({
+            fechaInputId: 'quickFecha',
+            fechasMultiplesId: 'quickFechasMultiples',
+            vehiculoSelectId: 'quickVehiculo',
+            choferSelectId: 'quickChofer',
+            vehiculoBadgeId: 'quickVehBadge',
+            choferBadgeId: 'quickChofBadge',
+            dobleTurnoId: 'quickDobleTurno',
+            submitBtnId: 'quickSubmitBtn'
+        });
     }
 
     function marcarPresetActivo(presetName) {
@@ -745,12 +759,31 @@
         }
     });
 
+    function actualizarDisponibilidadModal(preferred = {}) {
+        sincronizarDisponibilidad({
+            fechaInputId: 'modalInputFecha',
+            vehiculoSelectId: 'modalSelectVehiculo',
+            choferSelectId: 'modalSelectChofer',
+            vehiculoBadgeId: 'modalVehBadge',
+            choferBadgeId: 'modalChofBadge',
+            dobleTurnoId: 'modalDobleTurno',
+            submitBtnId: 'modalSubmitBtn',
+            preferredVehiculoId: preferred.vehiculoId,
+            preferredChoferId: preferred.choferId
+        });
+    }
+
     function abrirModalAsignar(opts = {}) {
         const fechaSel = opts.fecha || HOY_ISO;
         const content = `
             <form action="{% url 'jornada_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <input type="hidden" name="next_url" value="{% url 'dashboard_itinerario' %}">
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Fecha</label>
+                    <input type="date" name="fecha" id="modalInputFecha" class="form-input" value="${fechaSel}" onchange="actualizarDisponibilidadModal()" required>
+                </div>
 
                 <div style="margin-bottom: 14px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Ruta</label>
@@ -764,33 +797,31 @@
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Unidad</label>
+                    <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span>Unidad</span>
+                        <span id="modalVehBadge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#f0fdf4; color:#15803d;">Disponibles</span>
+                    </label>
                     <select name="vehiculo" id="modalSelectVehiculo" class="form-select" required>
-                        {% for v in vehiculos %}
-                        <option value="{{ v.id }}">{{ v.placa }} — {{ v.marca }}{% if v.estado != 'activo' %} ({{ v.get_estado_display }}){% endif %}</option>
-                        {% empty %}
-                        <option value="">No hay unidades registradas</option>
-                        {% endfor %}
+                        <option value="">Cargando disponibles...</option>
                     </select>
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Conductor</label>
+                    <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span>Conductor</span>
+                        <span id="modalChofBadge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#f0fdf4; color:#15803d;">Disponibles</span>
+                    </label>
                     <select name="chofer" id="modalSelectChofer" class="form-select" required>
-                        {% for c in choferes %}
-                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }}</option>
-                        {% empty %}
-                        <option value="">No hay conductores disponibles</option>
-                        {% endfor %}
+                        <option value="">Cargando disponibles...</option>
                     </select>
                 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Fecha</label>
-                    <input type="date" name="fecha" id="modalInputFecha" class="form-input" value="${fechaSel}" required>
-                </div>
+                <label style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--text-muted); margin-bottom: 18px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" name="permitir_doble_turno" value="1" id="modalDobleTurno" onchange="actualizarDisponibilidadModal()" style="accent-color:#15803d;">
+                    Permitir doble turno (mostrar también los ocupados ese día)
+                </label>
 
-                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
+                <button type="submit" id="modalSubmitBtn" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
                     Asignar ruta
                 </button>
             </form>
@@ -802,14 +833,10 @@
                 const el = document.getElementById('modalSelectRuta');
                 if (el) el.value = String(opts.rutaId);
             }
-            if (opts.vehiculoId) {
-                const el = document.getElementById('modalSelectVehiculo');
-                if (el) el.value = String(opts.vehiculoId);
-            }
-            if (opts.choferId) {
-                const el = document.getElementById('modalSelectChofer');
-                if (el) el.value = String(opts.choferId);
-            }
+            actualizarDisponibilidadModal({
+                vehiculoId: opts.vehiculoId,
+                choferId: opts.choferId
+            });
         }, 40);
     }
 

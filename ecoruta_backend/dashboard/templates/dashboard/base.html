@@ -978,6 +978,124 @@
             });
         }
 
+        async function sincronizarDisponibilidad(cfg) {
+            const vehSel = document.getElementById(cfg.vehiculoSelectId);
+            const chofSel = document.getElementById(cfg.choferSelectId);
+            if (!vehSel || !chofSel) return;
+
+            const fechaInput = cfg.fechaInputId ? document.getElementById(cfg.fechaInputId) : null;
+            const multiInput = cfg.fechasMultiplesId ? document.getElementById(cfg.fechasMultiplesId) : null;
+            const dobleToggle = cfg.dobleTurnoId ? document.getElementById(cfg.dobleTurnoId) : null;
+            const submitBtn = cfg.submitBtnId ? document.getElementById(cfg.submitBtnId) : null;
+            const vehBadge = cfg.vehiculoBadgeId ? document.getElementById(cfg.vehiculoBadgeId) : null;
+            const chofBadge = cfg.choferBadgeId ? document.getElementById(cfg.choferBadgeId) : null;
+
+            const multiVal = multiInput ? (multiInput.value || '').trim() : '';
+            const fechaVal = fechaInput ? (fechaInput.value || '').trim() : '';
+            const query = multiVal
+                ? `fechas=${encodeURIComponent(multiVal)}`
+                : `fecha=${encodeURIComponent(fechaVal)}`;
+
+            const prevVeh = cfg.preferredVehiculoId || vehSel.value;
+            const prevChof = cfg.preferredChoferId || chofSel.value;
+            const allowDouble = !!(dobleToggle && dobleToggle.checked);
+
+            try {
+                const resp = await fetch(`{% url 'dashboard_disponibilidad' %}?${query}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+
+                function renderSelect(sel, disponibles, ocupados, emptyText, prevVal) {
+                    sel.innerHTML = '';
+                    let totalSelectable = 0;
+
+                    if (disponibles.length) {
+                        const container = allowDouble && ocupados.length ? document.createElement('optgroup') : sel;
+                        if (container !== sel) {
+                            container.label = 'Disponibles';
+                            sel.appendChild(container);
+                        }
+                        disponibles.forEach(item => {
+                            const opt = document.createElement('option');
+                            opt.value = String(item.id);
+                            opt.textContent = item.label;
+                            container.appendChild(opt);
+                            totalSelectable++;
+                        });
+                    }
+
+                    if (allowDouble && ocupados.length) {
+                        const grp = document.createElement('optgroup');
+                        grp.label = 'En otro turno (doble turno)';
+                        ocupados.forEach(item => {
+                            const opt = document.createElement('option');
+                            opt.value = String(item.id);
+                            opt.textContent = `${item.label} · ocupado`;
+                            grp.appendChild(opt);
+                            totalSelectable++;
+                        });
+                        sel.appendChild(grp);
+                    }
+
+                    if (totalSelectable === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = emptyText;
+                        sel.appendChild(opt);
+                        sel.disabled = true;
+                        return false;
+                    }
+
+                    sel.disabled = false;
+                    if (prevVal && [...sel.options].some(o => o.value === String(prevVal))) {
+                        sel.value = String(prevVal);
+                    }
+                    return true;
+                }
+
+                const hasVeh = renderSelect(
+                    vehSel,
+                    data.vehiculos_disponibles || [],
+                    data.vehiculos_ocupados || [],
+                    'Sin unidades disponibles para esta fecha',
+                    prevVeh
+                );
+                const hasChof = renderSelect(
+                    chofSel,
+                    data.choferes_disponibles || [],
+                    data.choferes_ocupados || [],
+                    'Sin conductores disponibles para esta fecha',
+                    prevChof
+                );
+
+                function updateBadge(el, count) {
+                    if (!el) return;
+                    if (count > 0) {
+                        el.textContent = `${count} disponible${count === 1 ? '' : 's'}`;
+                        el.style.color = '#15803d';
+                        el.style.background = '#f0fdf4';
+                    } else {
+                        el.textContent = 'Sin disponibles';
+                        el.style.color = '#b45309';
+                        el.style.background = '#fffbeb';
+                    }
+                }
+
+                updateBadge(vehBadge, (data.vehiculos_disponibles || []).length);
+                updateBadge(chofBadge, (data.choferes_disponibles || []).length);
+
+                if (submitBtn) {
+                    submitBtn.disabled = !(hasVeh && hasChof);
+                    submitBtn.style.opacity = (hasVeh && hasChof) ? '1' : '0.55';
+                    submitBtn.style.cursor = (hasVeh && hasChof) ? 'pointer' : 'not-allowed';
+                }
+            } catch (err) {
+                console.error('Error consultando disponibilidad:', err);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             fetchHeaderAlerts();
             setInterval(fetchHeaderAlerts, 15000);

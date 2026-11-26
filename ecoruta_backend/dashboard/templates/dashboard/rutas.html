@@ -473,11 +473,28 @@
         openModal('<i class="fa-solid fa-trash-can" style="color: #dc2626;"></i> Confirmar Eliminación', content);
     }
 
+    function actualizarDisponibilidadRutaModal() {
+        sincronizarDisponibilidad({
+            fechaInputId: 'rutaModalInputFecha',
+            vehiculoSelectId: 'rutaModalSelectVehiculo',
+            choferSelectId: 'rutaModalSelectChofer',
+            vehiculoBadgeId: 'rutaModalVehBadge',
+            choferBadgeId: 'rutaModalChofBadge',
+            dobleTurnoId: 'rutaModalDobleTurno',
+            submitBtnId: 'rutaModalSubmitBtn'
+        });
+    }
+
     function abrirModalAsignarRutaDirecta(rutaIdPrevia) {
         const content = `
             <form action="{% url 'jornada_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
                 <input type="hidden" name="next_url" value="{% url 'dashboard_rutas' %}">
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Fecha</label>
+                    <input type="date" name="fecha" id="rutaModalInputFecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" onchange="actualizarDisponibilidadRutaModal()" required>
+                </div>
 
                 <div style="margin-bottom: 14px;">
                     <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Ruta</label>
@@ -491,44 +508,43 @@
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Unidad</label>
+                    <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span>Unidad</span>
+                        <span id="rutaModalVehBadge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#f0fdf4; color:#15803d;">Disponibles</span>
+                    </label>
                     <select name="vehiculo" id="rutaModalSelectVehiculo" class="form-select" required>
-                        {% for v in vehiculos %}
-                        <option value="{{ v.id }}">{{ v.placa }} — {{ v.marca }}{% if v.estado != 'activo' %} ({{ v.get_estado_display }}){% endif %}</option>
-                        {% empty %}
-                        <option value="">No hay unidades registradas</option>
-                        {% endfor %}
+                        <option value="">Cargando disponibles...</option>
                     </select>
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Conductor</label>
+                    <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">
+                        <span>Conductor</span>
+                        <span id="rutaModalChofBadge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#f0fdf4; color:#15803d;">Disponibles</span>
+                    </label>
                     <select name="chofer" id="rutaModalSelectChofer" class="form-select" required>
-                        {% for c in choferes %}
-                        <option value="{{ c.id }}">{{ c.usuario.get_full_name|default:c.usuario.username }}</option>
-                        {% empty %}
-                        <option value="">No hay conductores disponibles</option>
-                        {% endfor %}
+                        <option value="">Cargando disponibles...</option>
                     </select>
                 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Fecha</label>
-                    <input type="date" name="fecha" id="rutaModalInputFecha" class="form-input" value="{{ hoy|date:'Y-m-d' }}" required>
-                </div>
+                <label style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--text-muted); margin-bottom: 18px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" name="permitir_doble_turno" value="1" id="rutaModalDobleTurno" onchange="actualizarDisponibilidadRutaModal()" style="accent-color:#15803d;">
+                    Permitir doble turno (mostrar también los ocupados ese día)
+                </label>
 
-                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
+                <button type="submit" id="rutaModalSubmitBtn" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
                     Asignar ruta
                 </button>
             </form>
         `;
         openModal('Asignar ruta', content);
-        if (rutaIdPrevia) {
-            setTimeout(() => {
+        setTimeout(() => {
+            if (rutaIdPrevia) {
                 const selRuta = document.getElementById('rutaModalSelectRuta');
                 if (selRuta) selRuta.value = String(rutaIdPrevia);
-            }, 30);
-        }
+            }
+            actualizarDisponibilidadRutaModal();
+        }, 30);
     }
 </script>
 {% endblock %}

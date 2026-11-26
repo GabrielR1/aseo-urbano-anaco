@@ -259,6 +259,65 @@ def itinerario(request):
 
 
 @admin_required
+def disponibilidad_asignacion(request):
+    """Devuelve unidades activas y conductores disponibles/ocupados para la(s) fecha(s) consultada(s)."""
+    fechas_raw = (request.GET.get('fechas') or '').strip()
+    fecha_unica_raw = (request.GET.get('fecha') or '').strip()
+
+    fechas = []
+    if fechas_raw:
+        for item in fechas_raw.split(','):
+            parsed = parse_date(item.strip())
+            if parsed and parsed not in fechas:
+                fechas.append(parsed)
+    if not fechas:
+        parsed = parse_date(fecha_unica_raw) if fecha_unica_raw else None
+        fechas = [parsed or django.utils.timezone.localdate()]
+
+    jornadas_activas = (
+        Jornada.objects.select_related('ruta')
+        .filter(fecha__in=fechas, estado__in=['pendiente', 'en_curso'])
+    )
+
+    vehiculos_ocupados_map = {}
+    choferes_ocupados_map = {}
+    for j in jornadas_activas:
+        vehiculos_ocupados_map.setdefault(j.vehiculo_id, j.ruta.nombre)
+        choferes_ocupados_map.setdefault(j.chofer_id, j.ruta.nombre)
+
+    vehiculos_disponibles = []
+    vehiculos_ocupados = []
+    for v in Vehiculo.objects.filter(estado='activo').order_by('placa'):
+        item = {'id': v.id, 'label': f'{v.placa} — {v.marca}'}
+        if v.id in vehiculos_ocupados_map:
+            item['motivo'] = vehiculos_ocupados_map[v.id]
+            vehiculos_ocupados.append(item)
+        else:
+            vehiculos_disponibles.append(item)
+
+    choferes_disponibles = []
+    choferes_ocupados = []
+    for c in _choferes_operativos():
+        nombre = c.usuario.get_full_name() or c.usuario.username
+        item = {'id': c.id, 'label': nombre}
+        if c.id in choferes_ocupados_map:
+            item['motivo'] = choferes_ocupados_map[c.id]
+            choferes_ocupados.append(item)
+        else:
+            choferes_disponibles.append(item)
+
+    return JsonResponse(
+        {
+            'fechas': [f.isoformat() for f in fechas],
+            'vehiculos_disponibles': vehiculos_disponibles,
+            'vehiculos_ocupados': vehiculos_ocupados,
+            'choferes_disponibles': choferes_disponibles,
+            'choferes_ocupados': choferes_ocupados,
+        }
+    )
+
+
+@admin_required
 def jornada_crear(request):
     if request.method == 'POST':
         vehiculo_id = request.POST.get('vehiculo')
@@ -266,6 +325,7 @@ def jornada_crear(request):
         chofer_id = request.POST.get('chofer')
         fecha_raw = (request.POST.get('fecha') or '').strip()
         fechas_multiples_raw = (request.POST.get('fechas_multiples') or '').strip()
+        permitir_doble_turno = request.POST.get('permitir_doble_turno') == '1'
         next_url = request.POST.get('next_url')
 
         fechas_objetivo = []
@@ -291,7 +351,7 @@ def jornada_crear(request):
         chofer = Chofer.objects.filter(pk=chofer_pk).first() if chofer_pk else _choferes_operativos().first()
 
         if not vehiculo or not ruta:
-            messages.error(request, 'Debes seleccionar una ruta y un vehículo válidos.')
+            messages.error(request, 'Debes seleccionar una ruta y una unidad disponibles.')
             return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
 
         if not chofer:
@@ -299,14 +359,15 @@ def jornada_crear(request):
             return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
 
         if vehiculo.estado != 'activo':
-            messages.warning(
+            messages.error(
                 request,
-                f'Aviso: la unidad [{vehiculo.placa}] figura como "{vehiculo.get_estado_display()}". Verifica su operatividad antes de salir.',
+                f'La unidad {vehiculo.placa} está en estado "{vehiculo.get_estado_display()}" y no puede asignarse a una ruta.',
             )
+            return _redirigir_seguro(request, next_url, 'dashboard_itinerario')
 
         creadas = []
         omitidas_duplicado = 0
-        avisos_solape = 0
+        omitidas_ocupado = 0
         for fecha_item in fechas_objetivo:
             if Jornada.objects.filter(
                 vehiculo=vehiculo,
@@ -318,15 +379,20 @@ def jornada_crear(request):
                 omitidas_duplicado += 1
                 continue
 
-            if Jornada.objects.filter(
+            vehiculo_ocupado = Jornada.objects.filter(
                 fecha=fecha_item,
                 estado__in=['pendiente', 'en_curso'],
-            ).filter(vehiculo=vehiculo).exists() or Jornada.objects.filter(
+                vehiculo=vehiculo,
+            ).exists()
+            chofer_ocupado = Jornada.objects.filter(
                 fecha=fecha_item,
                 estado__in=['pendiente', 'en_curso'],
                 chofer=chofer,
-            ).exists():
-                avisos_solape += 1
+            ).exists()
+
+            if (vehiculo_ocupado or chofer_ocupado) and not permitir_doble_turno:
+                omitidas_ocupado += 1
+                continue
 
             creadas.append(
                 Jornada.objects.create(
@@ -352,26 +418,28 @@ def jornada_crear(request):
             )
             if len(creadas) == 1:
                 msg = (
-                    f'¡Ruta "{ruta.nombre}" asignada a [{vehiculo.placa}] con {chofer_nombre} '
-                    f'para el {creadas[0].fecha.strftime("%d/%m/%Y")}!'
+                    f'Ruta "{ruta.nombre}" asignada a {vehiculo.placa} con {chofer_nombre} '
+                    f'para el {creadas[0].fecha.strftime("%d/%m/%Y")}.'
                 )
             else:
                 msg = (
-                    f'¡{len(creadas)} jornadas programadas para "{ruta.nombre}" '
-                    f'([{vehiculo.placa}] • {chofer_nombre})!'
+                    f'{len(creadas)} salidas programadas para "{ruta.nombre}" '
+                    f'({vehiculo.placa} · {chofer_nombre}).'
                 )
             if omitidas_duplicado:
-                msg += f' ({omitidas_duplicado} omitida(s) por duplicado).'
+                msg += f' ({omitidas_duplicado} duplicada(s) omitida(s)).'
+            if omitidas_ocupado:
+                msg += f' ({omitidas_ocupado} omitida(s) porque la unidad o el conductor ya tenía turno).'
             messages.success(request, msg)
-            if avisos_solape:
-                messages.warning(
-                    request,
-                    f'Nota operativa: la unidad o el chofer ya tenía otra salida en {avisos_solape} de esas fechas.',
-                )
+        elif omitidas_ocupado:
+            messages.warning(
+                request,
+                f'{vehiculo.placa} o {chofer_nombre} ya tiene una ruta asignada en esa fecha. Elige otra unidad/conductor o marca "Permitir doble turno".',
+            )
         else:
             messages.info(
                 request,
-                f'Esa misma asignación ({ruta.nombre} • [{vehiculo.placa}] • {chofer_nombre}) ya existía en la(s) fecha(s) seleccionada(s).',
+                f'Esa misma asignación ya existía para la fecha seleccionada.',
             )
 
         return _redirigir_seguro(request, next_url, 'dashboard_itinerario')

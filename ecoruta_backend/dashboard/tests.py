@@ -247,3 +247,72 @@ class PanelPermisosTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.jornada.refresh_from_db()
         self.assertEqual(self.jornada.fecha, fecha_orig)
+
+    def test_disponibilidad_por_fecha_filtra_ocupados_y_mantenimiento(self):
+        libre_veh = Vehiculo.objects.create(
+            placa='PAN-002', marca='Iveco', modelo='Eurocargo', capacidad_toneladas=10, estado='activo'
+        )
+        Vehiculo.objects.create(
+            placa='PAN-003', marca='Ford', modelo='Cargo', capacidad_toneladas=10, estado='mantenimiento'
+        )
+        libre_user = Usuario.objects.create_user(username='choferlibre', password='password123', rol=Usuario.CHOFER)
+        libre_chofer = Chofer.objects.create(usuario=libre_user, licencia='LIC-LIBRE-1')
+
+        self.jornada.refresh_from_db()
+        fecha_ocupada = self.jornada.fecha.isoformat()
+
+        self.client.force_login(self.admin)
+        resp = self.client.get(reverse('dashboard_disponibilidad'), {'fecha': fecha_ocupada})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        veh_disp_ids = [v['id'] for v in data['vehiculos_disponibles']]
+        veh_ocup_ids = [v['id'] for v in data['vehiculos_ocupados']]
+        chof_disp_ids = [c['id'] for c in data['choferes_disponibles']]
+        chof_ocup_ids = [c['id'] for c in data['choferes_ocupados']]
+
+        self.assertEqual(veh_disp_ids, [libre_veh.id])
+        self.assertEqual(veh_ocup_ids, [self.vehiculo.id])
+        self.assertEqual(chof_disp_ids, [libre_chofer.id])
+        self.assertEqual(chof_ocup_ids, [self.chofer.id])
+
+        # Otra fecha libre: ambos activos deben aparecer disponibles (nunca el de mantenimiento)
+        resp_otra = self.client.get(reverse('dashboard_disponibilidad'), {'fecha': '2026-12-28'})
+        data_otra = resp_otra.json()
+        self.assertEqual({v['id'] for v in data_otra['vehiculos_disponibles']}, {self.vehiculo.id, libre_veh.id})
+
+    def test_no_permite_asignar_vehiculo_en_mantenimiento_ni_solapar_sin_doble_turno(self):
+        taller_veh = Vehiculo.objects.create(
+            placa='PAN-999', marca='Ford', modelo='Cargo', capacidad_toneladas=10, estado='mantenimiento'
+        )
+        otra_ruta = Ruta.objects.create(nombre='Ruta Norte', zona='Norte', distancia_estimada_km=8)
+        self.jornada.refresh_from_db()
+        fecha_ocupada = self.jornada.fecha.isoformat()
+
+        self.client.force_login(self.admin)
+        # Mantenimiento rechazado
+        self.client.post(
+            reverse('jornada_crear'),
+            {'vehiculo': taller_veh.pk, 'ruta': otra_ruta.pk, 'chofer': self.chofer.pk, 'fecha': '2026-12-29'},
+        )
+        self.assertFalse(Jornada.objects.filter(vehiculo=taller_veh).exists())
+
+        # Solape mismo día sin doble turno bloqueado
+        self.client.post(
+            reverse('jornada_crear'),
+            {'vehiculo': self.vehiculo.pk, 'ruta': otra_ruta.pk, 'chofer': self.chofer.pk, 'fecha': fecha_ocupada},
+        )
+        self.assertFalse(Jornada.objects.filter(ruta=otra_ruta).exists())
+
+        # Con doble turno explícito sí permite
+        self.client.post(
+            reverse('jornada_crear'),
+            {
+                'vehiculo': self.vehiculo.pk,
+                'ruta': otra_ruta.pk,
+                'chofer': self.chofer.pk,
+                'fecha': fecha_ocupada,
+                'permitir_doble_turno': '1',
+            },
+        )
+        self.assertTrue(Jornada.objects.filter(ruta=otra_ruta).exists())
