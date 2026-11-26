@@ -601,9 +601,9 @@
         function initMiniMap(lat, lng) {
             if (!miniMap) {
                 miniMap = L.map('miniMap', { zoomControl: false }).setView([lat, lng], 16);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                    subdomains: 'abcd',
-                    maxZoom: 20
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
                 }).addTo(miniMap);
                 userMarker = L.circleMarker([lat, lng], {
                     radius: 8,

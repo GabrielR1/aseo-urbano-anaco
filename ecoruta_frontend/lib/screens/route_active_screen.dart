@@ -59,6 +59,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   bool _isTracking = true;
   bool _sending = false;
   bool _followUser = true;
+  bool _satelliteMode = false;
   int _secondsElapsed = 0;
   double _totalDistanceKm = 0.0;
   String? _gpsWarning;
@@ -418,9 +419,9 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
             ? _routeWaypoints.first
             : (_traveledTrail.isNotEmpty ? _traveledTrail.last : _anacoCenter));
 
-    final tileUrl = isDark
-        ? 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-        : 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+    final tileUrl = _satelliteMode
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
     final Color statusColor;
     final String statusText;
@@ -564,7 +565,9 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                             ),
                             children: [
                               TileLayer(
+                                key: ValueKey(tileUrl),
                                 urlTemplate: tileUrl,
+                                maxZoom: 19,
                                 userAgentPackageName: 'com.aseourbanoanaco.chofer',
                               ),
                               PolylineLayer(
@@ -651,6 +654,46 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                                   const SizedBox(width: 10),
                                   _buildLegendDot(const Color(0xFF15803D), 'Recorrido'),
                                 ],
+                              ),
+                            ),
+                          ),
+                          // Cambio rápido entre mapa de calles y vista satelital
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: Material(
+                              color: colors.surface.withValues(alpha: 0.94),
+                              borderRadius: BorderRadius.circular(10),
+                              elevation: 2,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () => setState(() => _satelliteMode = !_satelliteMode),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: colors.outline.withValues(alpha: 0.6)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _satelliteMode ? Icons.map_rounded : Icons.satellite_alt_rounded,
+                                        size: 16,
+                                        color: colors.primary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _satelliteMode ? 'Calles' : 'Satélite',
+                                        style: TextStyle(
+                                          color: colors.onSurface,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),

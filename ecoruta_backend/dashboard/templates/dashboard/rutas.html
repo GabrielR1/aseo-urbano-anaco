@@ -261,10 +261,15 @@
         if (!el || typeof L === 'undefined') return;
 
         rutaEditorMap = L.map(el).setView([9.4410, -64.4600], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            subdomains: 'abcd',
-            maxZoom: 20
+        const osmEditorLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
         }).addTo(rutaEditorMap);
+        const satEditorLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '© Esri Satelital'
+        });
+        L.control.layers({ 'Calles': osmEditorLayer, 'Satélite': satEditorLayer }, null, { position: 'topright' }).addTo(rutaEditorMap);
 
         rutaEditorMap.on('click', function (e) {
             rutaEditorPoints.push([
