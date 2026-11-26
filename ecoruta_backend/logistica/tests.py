@@ -179,3 +179,35 @@ class LogisticaAPITests(TestCase):
         distancia = self.jornada.calcular_distancia_real_km()
         # ~1 km por cada 0.009 grados de latitud.
         self.assertAlmostEqual(distancia, 1.0, delta=0.1)
+
+    def test_chofer_registra_combustible_y_actualiza_bd(self):
+        from administracion.models import RegistroCombustible
+
+        self.client.force_authenticate(user=self.user)
+        get_resp = self.client.get('/api/logistica/combustible/')
+        self.assertEqual(get_resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(get_resp.data['vehiculos']) >= 1)
+
+        post_resp = self.client.post(
+            '/api/logistica/combustible/',
+            {
+                'vehiculo': self.vehiculo.id,
+                'litros': '45.5',
+                'costo_total': '22.75',
+                'kilometraje_actual': '15200',
+            },
+            format='json',
+        )
+        self.assertEqual(post_resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(RegistroCombustible.objects.count(), 1)
+        reg = RegistroCombustible.objects.first()
+        self.assertEqual(float(reg.litros), 45.5)
+
+    def test_chofer_combustible_invalido_es_rechazado(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            '/api/logistica/combustible/',
+            {'vehiculo': self.vehiculo.id, 'litros': '-10', 'costo_total': '0'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

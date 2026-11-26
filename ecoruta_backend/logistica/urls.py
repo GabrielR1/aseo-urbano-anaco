@@ -4,7 +4,8 @@ from .views import (
     JornadaViewSet, PuntoGeolocalizacionViewSet, IncidenciaViewSet,
     sincronizar_puntos_lote, monitoreo_en_vivo, optimizar_ruta_api, notificaciones_chofer,
     chofer_gamificacion_api, gestionar_incidencia_api,
-    mis_jornadas, iniciar_jornada_api, finalizar_jornada_api
+    mis_jornadas, iniciar_jornada_api, finalizar_jornada_api,
+    combustible_chofer_api,
 )
 
 router = DefaultRouter()
@@ -22,5 +23,6 @@ urlpatterns = [
     path('rutas/<int:pk>/optimizar/', optimizar_ruta_api, name='optimizar_ruta_api'),
     path('notificaciones/', notificaciones_chofer, name='notificaciones_chofer'),
     path('chofer/gamificacion/', chofer_gamificacion_api, name='chofer_gamificacion_api'),
+    path('combustible/', combustible_chofer_api, name='combustible_chofer_api'),
     path('', include(router.urls)),
 ]

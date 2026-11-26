@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import 'fuel_screen.dart';
 import 'route_active_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -76,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => RouteActiveScreen(
           jornadaId: jornadaId,
+          vehiculoId: jornada['vehiculo_id'] is int ? jornada['vehiculo_id'] as int : null,
           rutaNombre: (jornada['ruta_nombre'] ?? 'Ruta #$jornadaId').toString(),
           rutaZona: (jornada['ruta_zona'] ?? '').toString(),
           rutaDescripcion: (jornada['ruta_descripcion'] ?? '').toString(),
@@ -183,6 +185,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
                     ],
                     _buildCompactStatsRow(context),
+                    const SizedBox(height: 14),
+                    _buildFuelQuickAction(context),
                     _buildIncentivesSection(context),
                   ],
                 ),
@@ -503,6 +507,34 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 2),
         Text(label, style: TextStyle(color: muted, fontSize: 11.5, fontWeight: FontWeight.w600)),
       ],
+    );
+  }
+
+  Widget _buildFuelQuickAction(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final principal = _jornadas.isNotEmpty ? Map<String, dynamic>.from(_jornadas.first as Map) : null;
+    final vehiculoId = principal != null && principal['vehiculo_id'] is int ? principal['vehiculo_id'] as int : null;
+
+    return OutlinedButton.icon(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FuelScreen(vehiculoIdInicial: vehiculoId),
+          ),
+        );
+      },
+      icon: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFD97706), size: 22),
+      label: Text(
+        'Registrar carga de combustible',
+        style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: colors.onSurface),
+      ),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 54),
+        backgroundColor: colors.surface,
+        side: BorderSide(color: colors.outline),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
     );
   }
 

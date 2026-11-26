@@ -311,4 +311,85 @@ class ApiService {
       return null;
     }
   }
+
+  Future<List<Map<String, dynamic>>> getVehiculosCombustible() async {
+    sessionExpired = false;
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/logistica/combustible/'),
+            headers: await getHeaders(),
+          )
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return [];
+      }
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final raw = data is Map ? (data['vehiculos'] as List? ?? []) : [];
+        return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error obteniendo vehículos para combustible: $e');
+      return [];
+    }
+  }
+
+  Future<bool> registrarCombustible({
+    required int vehiculoId,
+    required double litros,
+    double costoTotal = 0.0,
+    int kilometrajeActual = 0,
+    Uint8List? comprobanteBytes,
+    String comprobanteName = 'comprobante.jpg',
+  }) async {
+    lastError = null;
+    sessionExpired = false;
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/logistica/combustible/'),
+      );
+      final token = await getToken();
+      if (token != null) {
+        request.headers['Authorization'] = 'Token $token';
+      }
+      request.fields['vehiculo'] = vehiculoId.toString();
+      request.fields['litros'] = litros.toStringAsFixed(2);
+      request.fields['costo_total'] = costoTotal.toStringAsFixed(2);
+      request.fields['kilometraje_actual'] = kilometrajeActual.toString();
+      if (comprobanteBytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes('comprobante', comprobanteBytes, filename: comprobanteName),
+        );
+      }
+
+      final streamed = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode == 401) {
+        sessionExpired = true;
+        return false;
+      }
+      if (response.statusCode == 201) {
+        return true;
+      }
+      try {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map && data['detail'] != null) {
+          lastError = data['detail'].toString();
+        }
+      } catch (_) {}
+      lastError ??= 'No se pudo registrar el combustible (${response.statusCode}).';
+      return false;
+    } on TimeoutException {
+      lastError = 'El servidor tardó en responder. Intenta de nuevo.';
+      return false;
+    } catch (e) {
+      debugPrint('Error registrando combustible: $e');
+      lastError = 'Sin conexión con el servidor. Intenta de nuevo.';
+      return false;
+    }
+  }
 }

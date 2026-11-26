@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import 'fuel_screen.dart';
 import 'incident_screen.dart';
 
 class RouteActiveScreen extends StatefulWidget {
   final int jornadaId;
+  final int? vehiculoId;
   final String? rutaNombre;
   final String? rutaZona;
   final String? rutaDescripcion;
@@ -22,6 +24,7 @@ class RouteActiveScreen extends StatefulWidget {
   const RouteActiveScreen({
     super.key,
     required this.jornadaId,
+    this.vehiculoId,
     this.rutaNombre,
     this.rutaZona,
     this.rutaDescripcion,
@@ -542,34 +545,67 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
 
                 const Spacer(),
 
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.warning_amber_rounded, size: 24),
-                  label: const Text('Reportar novedad', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 58),
-                    backgroundColor: const Color(0xFFDC2626),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => IncidentScreen(jornadaId: widget.jornadaId)),
-                    );
-                  },
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.warning_amber_rounded, size: 22),
+                        label: const Text('Novedad', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(0, 56),
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => IncidentScreen(jornadaId: widget.jornadaId)),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 3,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.local_gas_station_rounded, size: 21, color: Color(0xFFD97706)),
+                        label: Text(
+                          'Combustible',
+                          style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: colors.onSurface),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 56),
+                          side: BorderSide(color: colors.outline, width: 1.5),
+                          backgroundColor: colors.surface,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FuelScreen(vehiculoIdInicial: widget.vehiculoId),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  icon: Icon(Icons.flag_rounded, size: 22, color: colors.onSurface),
-                  label: Text(
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.flag_rounded, size: 22),
+                  label: const Text(
                     'Finalizar ruta',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: colors.onSurface),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 58),
-                    side: BorderSide(color: colors.outline, width: 1.6),
-                    backgroundColor: colors.surface,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.onPrimary,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: _confirmFinishJourney,

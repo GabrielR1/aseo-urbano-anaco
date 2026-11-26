@@ -11,7 +11,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from administracion.models import Chofer, IncentivoChofer, RegistroAuditoria, Ruta
+from administracion.models import (
+    Chofer,
+    IncentivoChofer,
+    RegistroAuditoria,
+    RegistroCombustible,
+    Ruta,
+    Vehiculo,
+)
 from security.permissions import EsAdministrador, es_administrador
 
 from .models import Incidencia, Jornada, PuntoGeolocalizacion
@@ -262,6 +269,7 @@ def mis_jornadas(request):
                 'estado': j.estado,
                 'estado_display': j.get_estado_display(),
                 'fecha': j.fecha.strftime('%d/%m/%Y'),
+                'vehiculo_id': j.vehiculo_id,
                 'vehiculo_placa': j.vehiculo.placa,
                 'vehiculo_modelo': f"{j.vehiculo.marca} {j.vehiculo.modelo}",
                 'ruta_nombre': j.ruta.nombre,
@@ -598,4 +606,100 @@ def chofer_gamificacion_api(request):
             'insignias': insignias_list,
         },
         status=status.HTTP_200_OK,
+    )
+
+
+@extend_schema(
+    summary="Registro de Carga de Combustible desde App Móvil",
+    description=(
+        "GET devuelve las unidades activas para seleccionar; POST registra una recarga real "
+        "de combustible (litros, costo, kilometraje y comprobante opcional) y actualiza el panel."
+    ),
+    responses={200: OpenApiTypes.OBJECT, 201: OpenApiTypes.OBJECT},
+)
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def combustible_chofer_api(request):
+    if request.method == 'GET':
+        vehiculos = [
+            {
+                'id': v.id,
+                'placa': v.placa,
+                'modelo': f'{v.marca} {v.modelo}',
+            }
+            for v in Vehiculo.objects.filter(estado='activo').order_by('placa')
+        ]
+        return Response({'vehiculos': vehiculos}, status=status.HTTP_200_OK)
+
+    vehiculo_raw = request.data.get('vehiculo')
+    try:
+        vehiculo_id = int(str(vehiculo_raw).strip())
+    except (TypeError, ValueError):
+        return Response(
+            {'detail': 'Selecciona un vehículo válido.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    vehiculo = Vehiculo.objects.filter(pk=vehiculo_id).first()
+    if not vehiculo:
+        return Response(
+            {'detail': 'La unidad seleccionada no existe.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    litros_raw = str(request.data.get('litros', '')).strip().replace(',', '.')
+    costo_raw = str(request.data.get('costo_total', '0')).strip().replace(',', '.') or '0'
+    km_raw = str(request.data.get('kilometraje_actual', '0')).strip() or '0'
+
+    try:
+        litros = Decimal(litros_raw)
+        costo_total = Decimal(costo_raw)
+        kilometraje = int(float(km_raw))
+    except (InvalidOperation, ValueError, TypeError):
+        return Response(
+            {'detail': 'Verifica los valores de litros, costo y kilometraje.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if litros <= 0 or litros > Decimal('1000'):
+        return Response(
+            {'detail': 'Los litros deben ser mayores que 0 y menores o iguales a 1000.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if costo_total < 0 or kilometraje < 0:
+        return Response(
+            {'detail': 'El costo y el kilometraje no pueden ser negativos.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    comprobante = request.FILES.get('comprobante')
+    registro = RegistroCombustible.objects.create(
+        vehiculo=vehiculo,
+        litros=litros.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+        costo_total=costo_total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+        kilometraje_actual=kilometraje,
+        comprobante=comprobante,
+    )
+
+    nombre_usuario = request.user.get_full_name() or request.user.username
+    RegistroAuditoria.objects.create(
+        usuario=request.user,
+        accion='CREAR',
+        tabla_afectada='Registro de Combustible',
+        detalles=(
+            f"{nombre_usuario} registró carga de {registro.litros} L "
+            f"(${registro.costo_total}) para la unidad [{vehiculo.placa}] desde la app móvil."
+        ),
+    )
+
+    return Response(
+        {
+            'id': registro.id,
+            'vehiculo_placa': vehiculo.placa,
+            'litros': float(registro.litros),
+            'costo_total': float(registro.costo_total),
+            'kilometraje_actual': registro.kilometraje_actual,
+            'mensaje': f'Carga de {registro.litros} L registrada para {vehiculo.placa}.',
+        },
+        status=status.HTTP_201_CREATED,
     )
