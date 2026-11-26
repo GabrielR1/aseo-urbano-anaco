@@ -4,20 +4,210 @@
 
 {% block extra_head %}
 <style>
+    .home-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    .home-toolbar-meta {
+        font-size: 13px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #ffffff;
+        border: 1px solid var(--card-border);
+        color: #334155;
+    }
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+    .kpi-card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 18px 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--card-border-hover);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+    .kpi-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .kpi-label {
+        font-size: 11.5px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+    }
+    .kpi-value {
+        margin: 6px 0 0 0;
+        font-size: 27px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+    .kpi-unit {
+        font-size: 13.5px;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+    .kpi-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        flex-shrink: 0;
+    }
+    .kpi-foot {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    }
     .home-main-grid {
         display: grid;
-        grid-template-columns: 2fr 1.2fr;
-        gap: 20px;
-        margin-bottom: 24px;
+        grid-template-columns: 1.65fr 1fr;
+        gap: 18px;
+        margin-bottom: 18px;
     }
     .home-secondary-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 18px;
+    }
+    .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+    }
+    .section-head h3 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .section-link {
+        font-size: 12px;
+        color: var(--accent-blue);
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .section-link:hover {
+        text-decoration: underline;
+    }
+    .compact-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .compact-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        transition: border-color 0.14s ease, background 0.14s ease;
+    }
+    .compact-row:hover {
+        border-color: #cbd5e1;
+        background: #ffffff;
+    }
+    .plate-chip {
+        font-family: monospace;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #1d4ed8;
+        background: #dbeafe;
+        padding: 2px 7px;
+        border-radius: 5px;
+        border: 1px solid #bfdbfe;
+        white-space: nowrap;
+    }
+    .state-chip {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .mode-switch {
+        display: inline-flex;
+        background: #f1f5f9;
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 2px;
+        gap: 2px;
+    }
+    .mode-btn {
+        border: none;
+        background: transparent;
+        color: #475569;
+        padding: 5px 11px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+    }
+    .mode-btn.active-km {
+        background: #1d4ed8;
+        color: #ffffff;
+    }
+    .mode-btn.active-ton {
+        background: #15803d;
+        color: #ffffff;
     }
     @media (max-width: 1180px) {
+        .kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
         .home-main-grid,
         .home-secondary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 640px) {
+        .kpi-grid {
             grid-template-columns: 1fr;
         }
     }
@@ -25,287 +215,244 @@
 {% endblock %}
 
 {% block content %}
-<!-- Quick Action Command Strip -->
-<div class="glass-card" style="padding: 16px 20px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
-    <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 40px; height: 40px; border-radius: 8px; background: #e0f2fe; border: 1px solid #bae6fd; display: flex; align-items: center; justify-content: center; color: #0284c7; font-size: 17px;">
-            <i class="fa-solid fa-truck-ramp-box"></i>
-        </div>
-        <div>
-            <div style="font-weight: 700; font-size: 15px; color: #0f172a;">Gestión y Supervisión de Rutas</div>
-            <div style="font-size: 12.5px; color: var(--text-muted);">Seguimiento de rutas, unidades de recolección e incidencias</div>
-        </div>
+<!-- Barra superior compacta: solo acciones directas no repetidas en el menú -->
+<div class="home-toolbar">
+    <div class="home-toolbar-meta">
+        <span class="status-pill">
+            <span class="pulsing-badge" style="background: {% if jornadas_activas > 0 %}#16a34a{% else %}#94a3b8{% endif %};"></span>
+            {% if jornadas_activas == 1 %}
+                1 unidad transmitiendo en vivo
+            {% elif jornadas_activas > 1 %}
+                {{ jornadas_activas }} unidades transmitiendo en vivo
+            {% else %}
+                Sin recorridos activos en este momento
+            {% endif %}
+        </span>
+        <span>{{ total_rutas }} ruta{{ total_rutas|pluralize:"s" }} • {{ jornadas_hoy }} jornada{{ jornadas_hoy|pluralize:"s" }} hoy</span>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <a href="{% url 'dashboard_mapa' %}" class="btn-modern btn-primary-green">
-            <i class="fa-solid fa-map-location-dot"></i> Ver mapa en vivo
+        <a href="{% url 'dashboard_itinerario' %}?asignar=1" class="btn-modern btn-primary-green">
+            <i class="fa-solid fa-plus"></i> Asignar recorrido
         </a>
-        <a href="{% url 'dashboard_chofer_gps' %}" class="btn-modern" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8;">
-            <i class="fa-solid fa-mobile-screen-button"></i> Transmitir GPS móvil
-        </a>
-        <a href="{% url 'dashboard_itinerario' %}?asignar=1" class="btn-modern" style="background: #ffffff; border: 1px solid var(--card-border); color: #334155;">
-            <i class="fa-solid fa-calendar-plus" style="color: #2563eb;"></i> Asignar recorrido
-        </a>
-        <a href="{% url 'exportar_recursos_pdf' %}" class="btn-modern" style="background: #ffffff; border: 1px solid var(--card-border); color: #334155;" title="Descargar Informe">
-            <i class="fa-solid fa-file-pdf" style="color: #dc2626;"></i> Generar informe
+        <a href="{% url 'exportar_recursos_pdf' %}" class="btn-modern" style="background: #ffffff; border: 1px solid var(--card-border); color: #334155;">
+            <i class="fa-solid fa-file-pdf" style="color: #dc2626;"></i> Informe PDF
         </a>
     </div>
 </div>
 
-<!-- Top Executive KPI Grid -->
-<div class="grid-3" style="margin-bottom: 24px;">
-    <!-- KPI 1: Flota Operativa -->
-    <div class="glass-card" style="border-top: 3px solid #16a34a;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+<!-- Tarjetas KPI clicables (acceso directo a cada módulo) -->
+<div class="kpi-grid">
+    <a href="{% url 'dashboard_recursos' %}" class="kpi-card" style="border-top: 3px solid #16a34a;">
+        <div class="kpi-top">
             <div>
-                <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Unidades operativas</span>
-                <h2 style="margin: 6px 0 0 0; font-size: 28px; font-weight: 800; color: #0f172a;">
-                    {{ vehiculos_activos }} <span style="font-size: 14px; color: var(--text-muted); font-weight: 500;">/ {{ total_vehiculos }}</span>
+                <span class="kpi-label">Unidades operativas</span>
+                <h2 class="kpi-value">
+                    {{ vehiculos_activos }} <span class="kpi-unit">/ {{ total_vehiculos }}</span>
                 </h2>
             </div>
-            <div style="background: #dcfce7; border: 1px solid #bbf7d0; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #15803d; font-size: 18px;">
+            <div class="kpi-icon" style="background: #dcfce7; color: #15803d;">
                 <i class="fa-solid fa-truck-front"></i>
             </div>
         </div>
-        <div style="margin-top: 14px;">
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">
-                <span>Disponibilidad de unidades</span>
+        <div style="margin-top: 12px;">
+            <div class="kpi-foot" style="margin-top: 0; margin-bottom: 5px;">
+                <span>Disponibilidad</span>
                 <span style="color: #15803d; font-weight: 700;">{{ tasa_disponibilidad }}%</span>
             </div>
             <div style="width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
                 <div style="width: {{ tasa_disponibilidad }}%; height: 100%; background: #16a34a; border-radius: 3px;"></div>
             </div>
         </div>
-    </div>
+    </a>
 
-    <!-- KPI 2: Recorrido Total GPS Real -->
-    <div class="glass-card" style="border-top: 3px solid #2563eb;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <a href="{% url 'dashboard_mapa' %}" class="kpi-card" style="border-top: 3px solid #2563eb;">
+        <div class="kpi-top">
             <div>
-                <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Distancia GPS real</span>
-                <h2 style="margin: 6px 0 0 0; font-size: 28px; font-weight: 800; color: #0f172a;">
-                    {{ km_acumulados }} <span style="font-size: 14px; color: var(--text-muted); font-weight: 500;">Km</span>
+                <span class="kpi-label">Distancia GPS</span>
+                <h2 class="kpi-value">
+                    {{ km_acumulados }} <span class="kpi-unit">Km</span>
                 </h2>
             </div>
-            <div style="background: #dbeafe; border: 1px solid #bfdbfe; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #1d4ed8; font-size: 18px;">
+            <div class="kpi-icon" style="background: #dbeafe; color: #1d4ed8;">
                 <i class="fa-solid fa-route"></i>
             </div>
         </div>
-        <div style="margin-top: 14px; font-size: 12px; color: #334155; display: flex; align-items: center; gap: 6px;">
-            <span class="pulsing-badge" style="background: {% if jornadas_activas > 0 %}#16a34a{% else %}#94a3b8{% endif %};"></span>
-            <span><b>{{ jornadas_activas }}</b> en curso • <b>{{ total_puntos_gps }}</b> puntos GPS</span>
+        <div class="kpi-foot">
+            <span>{{ total_puntos_gps }} registros GPS</span>
+            <span style="color: #1d4ed8; font-weight: 600;">Ver mapa →</span>
         </div>
-    </div>
+    </a>
 
-    <!-- KPI 3: Combustible Total -->
-    <div class="glass-card" style="border-top: 3px solid #d97706;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <a href="{% url 'dashboard_recursos' %}" class="kpi-card" style="border-top: 3px solid #d97706;">
+        <div class="kpi-top">
             <div>
-                <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Combustible registrado</span>
-                <h2 style="margin: 6px 0 0 0; font-size: 28px; font-weight: 800; color: #0f172a;">
-                    {{ total_litros }} <span style="font-size: 14px; color: var(--text-muted); font-weight: 500;">Lts</span>
+                <span class="kpi-label">Combustible</span>
+                <h2 class="kpi-value">
+                    {{ total_litros }} <span class="kpi-unit">Lts</span>
                 </h2>
             </div>
-            <div style="background: #fef3c7; border: 1px solid #fde68a; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #b45309; font-size: 18px;">
+            <div class="kpi-icon" style="background: #fef3c7; color: #b45309;">
                 <i class="fa-solid fa-gas-pump"></i>
             </div>
         </div>
-        <div style="margin-top: 14px; font-size: 12px; color: var(--text-muted);">
-            Volumen acumulado cargado a la flota
+        <div class="kpi-foot">
+            <span>Total cargado a la flota</span>
+            <span style="color: #b45309; font-weight: 600;">Detalle →</span>
         </div>
-    </div>
+    </a>
 
-    <!-- KPI 4: Incidencias en Ruta -->
-    <div class="glass-card" style="border-top: 3px solid #dc2626;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <a href="{% url 'dashboard_incidencias' %}" class="kpi-card" style="border-top: 3px solid #dc2626;">
+        <div class="kpi-top">
             <div>
-                <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Incidencias reportadas</span>
-                <h2 style="margin: 6px 0 0 0; font-size: 28px; font-weight: 800; color: {% if incidencias_pendientes > 0 %}#dc2626{% else %}#0f172a{% endif %};">
-                    {{ incidencias_pendientes }} <span style="font-size: 14px; color: var(--text-muted); font-weight: 500;">activas</span>
+                <span class="kpi-label">Incidencias</span>
+                <h2 class="kpi-value" style="color: {% if incidencias_pendientes > 0 %}#dc2626{% else %}#0f172a{% endif %};">
+                    {{ incidencias_pendientes }} <span class="kpi-unit">{% if incidencias_pendientes == 1 %}activa{% else %}activas{% endif %}</span>
                 </h2>
             </div>
-            <div style="background: #fee2e2; border: 1px solid #fecaca; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #b91c1c; font-size: 18px;">
+            <div class="kpi-icon" style="background: #fee2e2; color: #b91c1c;">
                 <i class="fa-solid fa-triangle-exclamation"></i>
             </div>
         </div>
-        <div style="margin-top: 14px; font-size: 12px; color: var(--text-muted);">
-            {% if incidencias_pendientes > 0 %}
-                Pendiente de revisión
-            {% else %}
-                Rutas operando con normalidad
-            {% endif %}
+        <div class="kpi-foot">
+            <span>{% if incidencias_pendientes > 0 %}Requieren atención{% else %}Operación normal{% endif %}</span>
+            <span style="color: #b91c1c; font-weight: 600;">Revisar →</span>
         </div>
-    </div>
+    </a>
 </div>
 
-<!-- Middle Section: Real Tons Chart & Fleet Overview -->
+<!-- Sección central: Actividad semanal + Estado de flota -->
 <div class="home-main-grid">
-    <!-- Chart: Recolección y Distancia Real Semanal -->
     <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+        <div class="section-head">
             <div>
-                <h3 id="weeklyChartTitle" style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">
-                    Actividad operativa semanal (datos reales)
-                </h3>
-                <span id="weeklyChartSubtitle" style="font-size: 12.5px; color: var(--text-muted);">
-                    Semana {{ inicio_semana|date:"d/m" }} – {{ fin_semana|date:"d/m" }} •
-                    Total: <b>{{ total_toneladas_semana }} Ton</b> | <b>{{ total_km_semana }} Km GPS</b>
+                <h3>Actividad semanal</h3>
+                <span style="font-size: 12px; color: var(--text-muted);">
+                    {{ inicio_semana|date:"d/m" }} – {{ fin_semana|date:"d/m" }} •
+                    <b>{{ total_km_semana }} Km</b> | <b>{{ total_toneladas_semana }} Ton</b>
                 </span>
             </div>
-            <div style="display: flex; gap: 6px; align-items: center;">
-                <button type="button" id="btnModeKm" onclick="setChartMode('km')" style="background: #1d4ed8; color: #ffffff; border: 1px solid #1d4ed8; padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
-                    Km GPS
-                </button>
-                <button type="button" id="btnModeTon" onclick="setChartMode('ton')" style="background: #f1f5f9; color: #475569; border: 1px solid var(--card-border); padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
-                    Toneladas
-                </button>
+            <div class="mode-switch">
+                <button type="button" id="btnModeKm" class="mode-btn active-km" onclick="setChartMode('km')">Km GPS</button>
+                <button type="button" id="btnModeTon" class="mode-btn" onclick="setChartMode('ton')">Toneladas</button>
             </div>
         </div>
-        <div style="position: relative; height: 260px; width: 100%;">
+
+        <div style="position: relative; height: 250px; width: 100%;">
             <canvas id="recoleccionChart"></canvas>
         </div>
+
         {% if total_toneladas_semana == 0 and total_km_semana == 0 %}
         <div style="margin-top: 10px; padding: 8px 12px; background: #f8fafc; border: 1px dashed var(--card-border); border-radius: 6px; font-size: 12px; color: var(--text-muted); text-align: center;">
-            <i class="fa-solid fa-satellite-dish" style="color: #2563eb; margin-right: 5px;"></i>
-            Sin telemetría registrada en la semana actual. Los datos reales aparecerán automáticamente al iniciar y finalizar jornadas desde el teléfono.
+            Aún no hay recorridos esta semana. Los datos se registran automáticamente desde la app del chofer.
         </div>
         {% endif %}
     </div>
 
-    <!-- Fleet Status Overview Widget -->
     <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
         <div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--card-border);">
-                <div>
-                    <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">
-                        <i class="fa-solid fa-truck-front" style="color: var(--accent-green); margin-right: 6px;"></i>
-                        Estado de las unidades
-                    </h3>
-                    <span style="font-size: 12px; color: var(--text-muted);">Unidades registradas en el sistema</span>
-                </div>
-                <span style="font-size: 11.5px; font-weight: 600; color: var(--text-muted);">{{ flota_unidades|length }} unidades</span>
+            <div class="section-head" style="padding-bottom: 10px; border-bottom: 1px solid #e2e8f0;">
+                <h3>Estado de la flota</h3>
+                <a href="{% url 'dashboard_recursos' %}" class="section-link">Gestionar ({{ flota_unidades|length }}) →</a>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="compact-list">
                 {% for v in flota_unidades %}
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--card-border);">
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-family: monospace; font-size: 12px; font-weight: 700; color: #1d4ed8; background: #dbeafe; padding: 2px 7px; border-radius: 4px; border: 1px solid #bfdbfe;">
-                                {{ v.placa }}
+                <div class="compact-row">
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 7px; flex-wrap: nowrap; min-width: 0;">
+                            <span class="plate-chip">{{ v.placa }}</span>
+                            <span style="font-weight: 700; font-size: 13px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="{{ v.marca }} {{ v.modelo }}">
+                                {{ v.marca }} {{ v.modelo }}
                             </span>
-                            {% if 'TM' in v.placa %}
-                            <span style="font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; padding: 2px 6px; border-radius: 4px;">
-                                <i class="fa-solid fa-motorcycle" style="margin-right: 3px;"></i> Trimoto
-                            </span>
-                            {% else %}
-                            <span style="font-size: 11px; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 6px; border-radius: 4px;">
-                                <i class="fa-solid fa-truck" style="margin-right: 3px;"></i> Camión
-                            </span>
-                            {% endif %}
-                            <span style="font-weight: 700; font-size: 13px; color: #0f172a;">{{ v.marca }} {{ v.modelo }}</span>
                         </div>
                         <span style="font-size: 11.5px; color: var(--text-muted); margin-top: 3px; display: block;">
-                            Capacidad: {{ v.capacidad_toneladas }} Ton • Rendimiento: {{ v.rendimiento_km_por_litro }} Km/L
+                            {% if 'TM' in v.placa %}Trimoto{% else %}Camión{% endif %} • {{ v.capacidad_toneladas }} Ton • {{ v.rendimiento_km_por_litro }} Km/L
                         </span>
                     </div>
                     {% if v.estado == 'activo' %}
-                    <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">
-                        Operativo
-                    </span>
+                    <span class="state-chip" style="background: #dcfce7; color: #15803d;">Operativo</span>
                     {% elif v.estado == 'mantenimiento' %}
-                    <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">
-                        En Taller
-                    </span>
+                    <span class="state-chip" style="background: #fee2e2; color: #b91c1c;">En taller</span>
                     {% else %}
-                    <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 600; background: #f1f5f9; color: #64748b;">
-                        Inactivo
-                    </span>
+                    <span class="state-chip" style="background: #f1f5f9; color: #64748b;">Inactivo</span>
                     {% endif %}
                 </div>
                 {% empty %}
-                <div style="text-align: center; color: var(--text-muted); padding: 18px; font-size: 12px;">
+                <div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 12.5px;">
                     No hay unidades registradas.
                 </div>
                 {% endfor %}
             </div>
         </div>
-
-        <a href="{% url 'dashboard_recursos' %}" style="display: block; text-align: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--card-border); font-size: 12.5px; color: var(--accent-blue); text-decoration: none; font-weight: 700;">
-            Administrar Flota y Control de Combustible →
-        </a>
     </div>
 </div>
 
-<!-- Bottom Section: Quick Live Operations & Incidents Feed -->
+<!-- Sección inferior: Jornadas recientes + Últimas incidencias -->
 <div class="home-secondary-grid">
-    <!-- Active Journeys / Itinerary -->
     <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">
-                <i class="fa-solid fa-calendar-check" style="color: #2563eb; margin-right: 6px;"></i>
-                Jornadas de Recolección Programadas
-            </h3>
-            <a href="{% url 'dashboard_itinerario' %}" style="font-size: 12px; color: var(--accent-blue); text-decoration: none; font-weight: 600;">
-                Ver calendario →
-            </a>
+        <div class="section-head">
+            <h3>Jornadas recientes</h3>
+            <a href="{% url 'dashboard_itinerario' %}" class="section-link">Ver plan completo →</a>
         </div>
 
         {% if ultimas_jornadas %}
-            <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="compact-list">
                 {% for j in ultimas_jornadas %}
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--card-border);">
-                        <div>
-                            <span style="font-weight: 700; font-size: 13px; color: #0f172a; display: block;">{{ j.ruta.nombre }}</span>
-                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                                <span style="font-family: monospace; color: #1d4ed8; font-weight: 600;">{{ j.vehiculo.placa }}</span> • Chofer: {{ j.chofer.usuario.get_full_name|default:j.chofer.usuario.username }}
-                            </div>
-                        </div>
-                        <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; {% if j.estado == 'en_curso' %}background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe;{% elif j.estado == 'pendiente' %}background: #fef3c7; color: #b45309; border: 1px solid #fde68a;{% else %}background: #f1f5f9; color: #475569;{% endif %}">
-                            {{ j.get_estado_display }}
+                <div class="compact-row">
+                    <div style="min-width: 0;">
+                        <span style="font-weight: 700; font-size: 13px; color: #0f172a; display: block;">{{ j.ruta.nombre }}</span>
+                        <span style="font-size: 12px; color: var(--text-muted);">
+                            <b style="font-family: monospace; color: #1d4ed8;">{{ j.vehiculo.placa }}</b> • {{ j.chofer.usuario.get_full_name|default:j.chofer.usuario.username }}
                         </span>
                     </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        {% if j.estado == 'en_curso' %}
+                        <a href="{% url 'dashboard_mapa' %}" class="state-chip" style="text-decoration: none; background: #dbeafe; color: #1d4ed8;">
+                            En curso →
+                        </a>
+                        {% elif j.estado == 'pendiente' %}
+                        <span class="state-chip" style="background: #fef3c7; color: #b45309;">Pendiente</span>
+                        {% else %}
+                        <span class="state-chip" style="background: #f1f5f9; color: #475569;">{{ j.get_estado_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
                 {% endfor %}
             </div>
         {% else %}
-            <div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 13px;">
-                No hay jornadas asignadas actualmente.
+            <div style="text-align: center; color: var(--text-muted); padding: 22px 0; font-size: 13px;">
+                No hay jornadas programadas.
+                <a href="{% url 'dashboard_itinerario' %}?asignar=1" class="section-link" style="margin-left: 4px;">Asignar la primera</a>
             </div>
         {% endif %}
     </div>
 
-    <!-- Active Incident Alerts -->
     <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">
-                <i class="fa-solid fa-triangle-exclamation" style="color: #dc2626; margin-right: 6px;"></i>
-                Incidencias Reportadas en Ruta
-            </h3>
-            <span style="font-size: 11px; color: {% if incidencias_pendientes > 0 %}#dc2626{% else %}var(--text-muted){% endif %}; font-weight: 700;">
-                {{ incidencias_pendientes }} pendiente(s)
-            </span>
+        <div class="section-head">
+            <h3>Últimas incidencias</h3>
+            <a href="{% url 'dashboard_incidencias' %}" class="section-link">Ver todas →</a>
         </div>
 
         {% if alertas_recientes %}
-            <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="compact-list">
                 {% for alerta in alertas_recientes %}
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--card-border);">
-                        <div style="max-width: 75%;">
-                            <span style="font-weight: 600; font-size: 13px; color: #b91c1c; display: block;">{{ alerta.descripcion }}</span>
-                            <span style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px; display: block;">
-                                Vehículo: <b style="color: #0f172a;">{{ alerta.jornada.vehiculo.placa }}</b> • {{ alerta.timestamp|date:"d/m/Y H:i" }}
-                            </span>
-                        </div>
-                        <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; {% if alerta.estado == 'resuelta' %}background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;{% else %}background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;{% endif %}">
-                            {{ alerta.get_estado_display }}
+                <div class="compact-row">
+                    <div style="min-width: 0;">
+                        <span style="font-weight: 600; font-size: 13px; color: #0f172a; display: block;">{{ alerta.descripcion }}</span>
+                        <span style="font-size: 11.5px; color: var(--text-muted);">
+                            <b style="color: #334155;">{{ alerta.jornada.vehiculo.placa }}</b> • {{ alerta.timestamp|date:"d/m H:i" }}
                         </span>
                     </div>
+                    <span class="state-chip" style="{% if alerta.estado == 'resuelta' %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                        {{ alerta.get_estado_display }}
+                    </span>
+                </div>
                 {% endfor %}
             </div>
         {% else %}
-            <div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 13px;">
-                <i class="fa-solid fa-circle-check" style="font-size: 24px; color: #16a34a; display: block; margin-bottom: 8px;"></i>
-                Todas las rutas operan sin incidencias reportadas.
+            <div style="text-align: center; color: var(--text-muted); padding: 22px 0; font-size: 13px;">
+                <i class="fa-solid fa-circle-check" style="font-size: 22px; color: #16a34a; display: block; margin-bottom: 6px;"></i>
+                Sin incidencias pendientes en las rutas.
             </div>
         {% endif %}
     </div>
@@ -326,12 +473,12 @@
             labels: DIAS_SEMANA,
             datasets: [
                 {
-                    label: 'Distancia GPS Real (Km)',
+                    label: 'Distancia GPS (Km)',
                     data: DATOS_KM,
                     backgroundColor: 'rgba(37, 99, 235, 0.85)',
                     borderColor: '#1d4ed8',
                     borderWidth: 1,
-                    borderRadius: 4
+                    borderRadius: 6
                 }
             ]
         },
@@ -344,7 +491,7 @@
                     suggestedMax: 5,
                     title: {
                         display: true,
-                        text: 'Kilómetros GPS (Km)',
+                        text: 'Kilómetros (Km)',
                         color: '#64748b',
                         font: { family: 'Plus Jakarta Sans', size: 11.5, weight: '600' }
                     },
@@ -376,31 +523,23 @@
         const btnTon = document.getElementById('btnModeTon');
 
         if (mode === 'ton') {
-            weeklyChart.data.datasets[0].label = 'Toneladas Recolectadas (Ton)';
+            weeklyChart.data.datasets[0].label = 'Toneladas (Ton)';
             weeklyChart.data.datasets[0].data = DATOS_TON;
             weeklyChart.data.datasets[0].backgroundColor = 'rgba(21, 128, 61, 0.85)';
             weeklyChart.data.datasets[0].borderColor = '#15803d';
             weeklyChart.options.scales.y.title.text = 'Toneladas (Ton)';
 
-            btnTon.style.background = '#15803d';
-            btnTon.style.color = '#ffffff';
-            btnTon.style.borderColor = '#15803d';
-            btnKm.style.background = '#f1f5f9';
-            btnKm.style.color = '#475569';
-            btnKm.style.borderColor = 'var(--card-border)';
+            btnTon.className = 'mode-btn active-ton';
+            btnKm.className = 'mode-btn';
         } else {
-            weeklyChart.data.datasets[0].label = 'Distancia GPS Real (Km)';
+            weeklyChart.data.datasets[0].label = 'Distancia GPS (Km)';
             weeklyChart.data.datasets[0].data = DATOS_KM;
             weeklyChart.data.datasets[0].backgroundColor = 'rgba(37, 99, 235, 0.85)';
             weeklyChart.data.datasets[0].borderColor = '#1d4ed8';
-            weeklyChart.options.scales.y.title.text = 'Kilómetros GPS (Km)';
+            weeklyChart.options.scales.y.title.text = 'Kilómetros (Km)';
 
-            btnKm.style.background = '#1d4ed8';
-            btnKm.style.color = '#ffffff';
-            btnKm.style.borderColor = '#1d4ed8';
-            btnTon.style.background = '#f1f5f9';
-            btnTon.style.color = '#475569';
-            btnTon.style.borderColor = 'var(--card-border)';
+            btnKm.className = 'mode-btn active-km';
+            btnTon.className = 'mode-btn';
         }
         weeklyChart.update();
     }

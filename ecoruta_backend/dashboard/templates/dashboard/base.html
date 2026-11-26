@@ -690,8 +690,7 @@
             }
         }
     </style>
-    <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/img/logo.svg' %}">
-    <link rel="alternate icon" type="image/png" href="{% static 'dashboard/img/logo.png' %}">
+    <link rel="icon" type="image/png" href="{% static 'dashboard/img/logo.png' %}?v=6">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -704,13 +703,9 @@
     <!-- Main Sidebar Navigation -->
     <aside class="sidebar" id="appSidebar">
         <div class="sidebar-brand-wrapper">
-            <a href="{% url 'dashboard_home' %}" class="sidebar-brand">
-                <div class="brand-logo-box">
-                    <img src="{% static 'dashboard/img/logo.svg' %}?v=5" alt="Aseo Urbano Logo">
-                </div>
-                <div>
-                    <span class="brand-name">Aseo Urbano</span>
-                    <span class="brand-tag">Alcaldía de Anaco</span>
+            <a href="{% url 'dashboard_home' %}" class="sidebar-brand" title="Dirección de Aseo Urbano - Alcaldía de Anaco">
+                <div style="width: 100%; background: #ffffff; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.18);">
+                    <img src="{% static 'dashboard/img/logo_institucional.png' %}?v=6" alt="Dirección de Aseo Urbano - Alcaldía de Municipio Bolivariano Anaco" style="width: 100%; max-height: 62px; object-fit: contain; display: block;">
                 </div>
             </a>
         </div>
@@ -724,10 +719,6 @@
             <a href="{% url 'dashboard_mapa' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_mapa' %}active{% endif %}">
                 <i class="fa-solid fa-map-location-dot"></i>
                 <span>Monitoreo GPS en Vivo</span>
-            </a>
-            <a href="{% url 'dashboard_chofer_gps' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard_chofer_gps' %}active{% endif %}">
-                <i class="fa-solid fa-mobile-screen-button"></i>
-                <span>Modo Chofer GPS</span>
             </a>
 
             <span class="nav-section-title">Operaciones y Flota</span>

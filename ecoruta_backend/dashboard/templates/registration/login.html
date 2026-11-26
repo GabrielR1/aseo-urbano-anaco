@@ -47,22 +47,6 @@
 {% endblock %}
 
 {% block content %}
-{% if demo_mode %}
-<!-- Quick Fill Demo Credentials Banner (solo visible con DEBUG=True) -->
-<div class="demo-credentials-pill" onclick="fillDemoCredentials()" title="Clic para rellenar usuario y clave automáticamente">
-    <div style="display: flex; align-items: center; gap: 8px; text-align: left;">
-        <i class="fa-solid fa-key" style="color: var(--accent-green);"></i>
-        <div>
-            <span style="font-weight: 700; color: #0f172a; display: block;">Acceso de Demostración</span>
-            <span style="color: var(--text-muted); font-size: 11px;">admin / admin123</span>
-        </div>
-    </div>
-    <span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 10px;">
-        AUTOLLENAR
-    </span>
-</div>
-{% endif %}
-
 {% if form.errors %}
 <div class="error-message">
     <i class="fa-solid fa-circle-exclamation"></i>
@@ -121,16 +105,6 @@
                 this.classList.add('fa-eye-slash');
             }
         });
-    }
-
-    function fillDemoCredentials() {
-        const userInput = document.getElementById('id_username');
-        const passInput = document.getElementById('id_password');
-        if (userInput && passInput) {
-            userInput.value = 'admin';
-            passInput.value = 'admin123';
-            userInput.focus();
-        }
     }
 </script>
 {% endblock %}

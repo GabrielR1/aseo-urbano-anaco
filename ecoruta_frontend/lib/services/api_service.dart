@@ -6,6 +6,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
+  static const String defaultProductionUrl = 'https://aseo-urbano-anaco.onrender.com/api';
+  static const String defaultLocalUrl = 'http://127.0.0.1:8000/api';
+
   static String customUrl = '';
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -17,7 +20,7 @@ class ApiService {
       clean = clean.substring(0, clean.length - 1);
     }
     if (clean.isNotEmpty && !RegExp(r'^https?://', caseSensitive: false).hasMatch(clean)) {
-      clean = 'http://$clean';
+      clean = 'https://$clean';
     }
     if (clean.isNotEmpty && !clean.endsWith('/api')) {
       clean = '$clean/api';
@@ -30,10 +33,9 @@ class ApiService {
       return _normalizeUrl(customUrl);
     }
     if (kIsWeb || defaultTargetPlatform == TargetPlatform.windows) {
-      return 'http://127.0.0.1:8000/api';
+      return defaultLocalUrl;
     }
-    // Configura la URL HTTPS de tu servidor en Render desde el ícono de ajustes en el Login.
-    return 'http://192.168.1.112:8000/api';
+    return defaultProductionUrl;
   }
 
   final storage = const FlutterSecureStorage();
@@ -52,6 +54,15 @@ class ApiService {
   Future<void> saveServerUrl(String newUrl) async {
     customUrl = _normalizeUrl(newUrl);
     await storage.write(key: 'custom_server_url', value: customUrl);
+  }
+
+  Future<void> resetServerUrl() async {
+    customUrl = '';
+    try {
+      await storage.delete(key: 'custom_server_url');
+    } catch (e) {
+      debugPrint('No se pudo restablecer la URL del servidor: $e');
+    }
   }
 
   Future<String?> getToken() async {
@@ -102,11 +113,11 @@ class ApiService {
       }
       return false;
     } on TimeoutException {
-      lastError = 'El servidor no respondió a tiempo. Verifica la dirección configurada.';
+      lastError = 'El servidor tardó en responder. Intenta de nuevo en unos segundos.';
       return false;
     } catch (e) {
       debugPrint('Error during login: $e');
-      lastError = 'No se pudo conectar con el servidor. Revisa tu red o la URL configurada.';
+      lastError = 'No se pudo conectar con el servidor. Revisa tu conexión a internet.';
       return false;
     }
   }
@@ -240,7 +251,6 @@ class ApiService {
         await storage.delete(key: 'offline_gps_queue');
         return;
       }
-      // Se limita el tamaño para no crecer indefinidamente si no hay conexión.
       final recortada = queue.length > 2000 ? queue.sublist(queue.length - 2000) : queue;
       await storage.write(key: 'offline_gps_queue', value: jsonEncode(recortada));
     } catch (e) {

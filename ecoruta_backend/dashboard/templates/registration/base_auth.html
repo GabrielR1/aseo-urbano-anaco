@@ -61,17 +61,13 @@
             border-radius: 12px 12px 0 0;
         }
 
-        .brand-icon-box {
-            width: 54px;
-            height: 54px;
-            border-radius: 12px;
-            background: #f8fafc;
-            border: 1px solid var(--card-border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 16px auto;
-            padding: 5px;
+        .brand-logo-banner {
+            width: 100%;
+            max-width: 265px;
+            margin: 0 auto 14px auto;
+            display: block;
+            height: auto;
+            object-fit: contain;
         }
 
         .auth-card h2 {
@@ -174,17 +170,13 @@
             text-align: left;
         }
     </style>
-    <link rel="icon" type="image/svg+xml" href="{% static 'dashboard/img/logo.svg' %}">
-    <link rel="alternate icon" type="image/png" href="{% static 'dashboard/img/logo.png' %}">
+    <link rel="icon" type="image/png" href="{% static 'dashboard/img/logo.png' %}?v=6">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <div class="auth-card">
-        <div class="brand-icon-box">
-            <img src="{% static 'dashboard/img/logo.svg' %}?v=5" alt="Aseo Urbano Logo" style="width: 100%; height: 100%; object-fit: contain;">
-        </div>
-        <h2>{% block header %}Aseo Urbano Anaco{% endblock %}</h2>
-        <p class="auth-subtitle">{% block subheader %}Alcaldía del Municipio Anaco • Control y Monitoreo{% endblock %}</p>
+        <img src="{% static 'dashboard/img/logo_institucional.png' %}?v=6" alt="Dirección de Aseo Urbano - Alcaldía de Municipio Bolivariano Anaco" class="brand-logo-banner">
+        <p class="auth-subtitle">{% block subheader %}Control y Monitoreo Operativo{% endblock %}</p>
 
         {% block content %}{% endblock %}
     </div>

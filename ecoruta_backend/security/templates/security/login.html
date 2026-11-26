@@ -89,11 +89,10 @@
 </head>
 <body>
     <div class="login-card">
-        <div class="icon-box">
-            <img src="{% static 'dashboard/img/logo.svg' %}?v=5" alt="EcoRuta Logo" style="width: 100%; height: 100%; object-fit: contain;">
+        <div style="background: #ffffff; border-radius: 12px; padding: 10px 14px; margin: 0 auto 16px auto; max-width: 260px;">
+            <img src="{% static 'dashboard/img/logo_institucional.png' %}?v=6" alt="Dirección de Aseo Urbano - Alcaldía de Municipio Bolivariano Anaco" style="width: 100%; height: auto; display: block; object-fit: contain;">
         </div>
-        <h2 style="margin: 0 0 4px 0; font-family: 'Outfit'; font-size: 22px;">EcoRuta</h2>
-        <p style="color: #64748b; font-size: 13px; margin: 0 0 24px 0;">Plataforma de Gestión y Transporte</p>
+        <p style="color: #94a3b8; font-size: 13px; margin: 0 0 24px 0;">Plataforma de Gestión y Monitoreo</p>
         
         <form method="post" action="{% url 'login' %}" style="text-align: left;">
             {% csrf_token %}

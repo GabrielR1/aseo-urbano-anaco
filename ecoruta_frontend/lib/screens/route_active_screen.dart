@@ -8,7 +8,19 @@ import 'incident_screen.dart';
 
 class RouteActiveScreen extends StatefulWidget {
   final int jornadaId;
-  const RouteActiveScreen({super.key, required this.jornadaId});
+  final String? rutaNombre;
+  final String? vehiculoPlaca;
+  final String? vehiculoModelo;
+  final double distanciaInicialKm;
+
+  const RouteActiveScreen({
+    super.key,
+    required this.jornadaId,
+    this.rutaNombre,
+    this.vehiculoPlaca,
+    this.vehiculoModelo,
+    this.distanciaInicialKm = 0.0,
+  });
 
   @override
   State<RouteActiveScreen> createState() => _RouteActiveScreenState();
@@ -20,16 +32,19 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   Timer? _elapsedTimer;
 
   Position? _currentPosition;
+  Position? _lastRecordedPosition;
   bool _isTracking = true;
-  bool _isRestoringQueue = true;
   bool _capturando = false;
   int _secondsElapsed = 0;
-  int _pointsSentCount = 0;
+  double _totalDistanceKm = 0.0;
+  String? _gpsWarning;
+  bool _canOpenSettings = false;
   final List<Map<String, dynamic>> _offlinePointsQueue = [];
 
   @override
   void initState() {
     super.initState();
+    _totalDistanceKm = widget.distanciaInicialKm;
     _startElapsedTimer();
     _inicializar();
   }
@@ -41,7 +56,6 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
       _offlinePointsQueue
         ..clear()
         ..addAll(pendientes);
-      _isRestoringQueue = false;
     });
     await _startTracking();
   }
@@ -58,10 +72,13 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        if (mounted) setState(() => _isTracking = false);
-        _mostrarAvisoUbicacion(
-          'El GPS del teléfono está desactivado. Actívalo para transmitir la ruta.',
-        );
+        if (mounted) {
+          setState(() {
+            _isTracking = false;
+            _gpsWarning = 'El GPS está desactivado. Actívalo para registrar tu ruta.';
+            _canOpenSettings = false;
+          });
+        }
         return;
       }
 
@@ -70,48 +87,47 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied) {
-        if (mounted) setState(() => _isTracking = false);
-        _mostrarAvisoUbicacion('Se necesita permiso de ubicación para transmitir la ruta.');
+        if (mounted) {
+          setState(() {
+            _isTracking = false;
+            _gpsWarning = 'Permite el acceso a tu ubicación para transmitir la ruta.';
+            _canOpenSettings = false;
+          });
+        }
         return;
       }
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) setState(() => _isTracking = false);
-        _mostrarAvisoUbicacion(
-          'El permiso de ubicación fue bloqueado. Habilítalo desde los ajustes del teléfono.',
-          abrirAjustes: true,
-        );
+        if (mounted) {
+          setState(() {
+            _isTracking = false;
+            _gpsWarning = 'El permiso de ubicación está bloqueado en ajustes.';
+            _canOpenSettings = true;
+          });
+        }
         return;
       }
 
       if (!mounted) return;
-      setState(() => _isTracking = true);
+      setState(() {
+        _isTracking = true;
+        _gpsWarning = null;
+        _canOpenSettings = false;
+      });
 
       await _captureAndSendGps();
       _gpsTimer?.cancel();
-      _gpsTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      _gpsTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
         await _captureAndSendGps();
       });
     } catch (e) {
       debugPrint('Error iniciando el rastreo GPS: $e');
-      if (mounted) setState(() => _isTracking = false);
+      if (mounted) {
+        setState(() {
+          _isTracking = false;
+          _gpsWarning = 'No se pudo activar el GPS. Toca reintentar.';
+        });
+      }
     }
-  }
-
-  void _mostrarAvisoUbicacion(String mensaje, {bool abrirAjustes = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: Colors.orange.shade800,
-        action: abrirAjustes
-            ? SnackBarAction(
-                label: 'Ajustes',
-                textColor: Colors.white,
-                onPressed: Geolocator.openAppSettings,
-              )
-            : null,
-      ),
-    );
   }
 
   Future<void> _captureAndSendGps() async {
@@ -125,8 +141,26 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         ),
       );
 
+      double deltaKm = 0.0;
+      if (_lastRecordedPosition != null) {
+        final meters = Geolocator.distanceBetween(
+          _lastRecordedPosition!.latitude,
+          _lastRecordedPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
+        if (meters >= 5 && meters < 5000) {
+          deltaKm = meters / 1000.0;
+        }
+      }
+      _lastRecordedPosition = position;
+
       if (mounted) {
-        setState(() => _currentPosition = position);
+        setState(() {
+          _currentPosition = position;
+          _totalDistanceKm += deltaKm;
+          _gpsWarning = null;
+        });
       }
 
       final speedKmh = (position.speed * 3.6).clamp(0.0, 160.0).toDouble();
@@ -139,9 +173,6 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
       );
 
       if (success) {
-        if (mounted) {
-          setState(() => _pointsSentCount++);
-        }
         await _vaciarColaOffline();
       } else {
         _encolarPunto(position, speedKmh);
@@ -179,7 +210,35 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
     final seconds = totalSeconds % 60;
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Future<bool> _confirmLeaveScreen() async {
+    final salir = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('¿Salir de la pantalla?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Tu ruta seguirá abierta en el servidor, pero el GPS dejará de transmitirse hasta que vuelvas a entrar.',
+          style: TextStyle(color: Colors.white70, fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Quedarme', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Salir', style: TextStyle(color: Colors.white60)),
+          ),
+        ],
+      ),
+    );
+    return salir == true;
   }
 
   @override
@@ -191,165 +250,222 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final speed = _currentPosition != null ? (_currentPosition!.speed * 3.6).toStringAsFixed(1) : '0.0';
-    final accuracy = _currentPosition != null
-        ? '±${_currentPosition!.accuracy.toStringAsFixed(1)} m'
-        : 'Buscando satélites...';
+    final speed = _currentPosition != null
+        ? (_currentPosition!.speed * 3.6).clamp(0.0, 160.0).round().toString()
+        : '0';
+    final tituloRuta = (widget.rutaNombre != null && widget.rutaNombre!.isNotEmpty)
+        ? widget.rutaNombre!
+        : 'Ruta #${widget.jornadaId}';
+    final subtituloVehiculo = [
+      if (widget.vehiculoPlaca != null && widget.vehiculoPlaca!.isNotEmpty) widget.vehiculoPlaca!,
+      if (widget.vehiculoModelo != null && widget.vehiculoModelo!.isNotEmpty) widget.vehiculoModelo!,
+    ].join(' • ');
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF090D16),
-      appBar: AppBar(
-        title: Text('Jornada #${widget.jornadaId} en Curso'),
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
+    final Color statusColor;
+    final String statusText;
+    if (!_isTracking) {
+      statusColor = const Color(0xFFEF4444);
+      statusText = 'GPS detenido';
+    } else if (_offlinePointsQueue.isNotEmpty) {
+      statusColor = const Color(0xFFF59E0B);
+      statusText = 'Sin señal • ${_offlinePointsQueue.length} por enviar';
+    } else if (_currentPosition == null) {
+      statusColor = const Color(0xFF38BDF8);
+      statusText = 'Buscando señal GPS...';
+    } else {
+      statusColor = const Color(0xFF10B981);
+      statusText = 'En ruta • GPS conectado';
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final leave = await _confirmLeaveScreen();
+        if (leave && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF090D16),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0F172A),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Radar Status Header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0x3310B981)),
+              Text(
+                tituloRuta,
+                style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (subtituloVehiculo.isNotEmpty)
+                Text(
+                  subtituloVehiculo,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: _isTracking ? const Color(0xFF10B981) : Colors.orange,
-                            shape: BoxShape.circle,
+            ],
+          ),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(18.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Indicador único de estado GPS (sin duplicados)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111827),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.45)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          statusText,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                        ),
+                      ),
+                      if (!_isTracking)
+                        TextButton(
+                          onPressed: _canOpenSettings ? Geolocator.openAppSettings : _startTracking,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            _canOpenSettings ? 'Ajustes' : 'Reintentar',
+                            style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.w800),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isTracking ? 'GPS Activo y Transmitiendo' : 'GPS Fuera de Línea',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      _formatElapsedTime(_secondsElapsed),
-                      style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (_isRestoringQueue)
-                const LinearProgressIndicator(color: Color(0xFF10B981))
-              else if (_offlinePointsQueue.isNotEmpty)
+
+                if (_gpsWarning != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0x22F59E0B),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0x66F59E0B)),
+                    ),
+                    child: Text(
+                      _gpsWarning!,
+                      style: const TextStyle(color: Color(0xFFFCD34D), fontSize: 12.5),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 18),
+
+                // Panel principal limpio con solo 3 datos útiles para el chofer
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
                   decoration: BoxDecoration(
-                    color: const Color(0x33F59E0B),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFF59E0B)),
-                  ),
-                  child: Text(
-                    '${_offlinePointsQueue.length} punto(s) GPS en cola. Se enviarán al recuperar la señal.',
-                    style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12),
-                  ),
-                ),
-              const SizedBox(height: 20),
-
-              // Telemetry Speedometer Card
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0x3310B981)),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black45, blurRadius: 20, offset: Offset(0, 8)),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.speed, size: 40, color: Color(0xFF10B981)),
-                    const SizedBox(height: 10),
-                    Text(
-                      speed,
-                      style: const TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.w900),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF172133), Color(0xFF0F172A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const Text('Km/h Velocidad en Ruta', style: TextStyle(color: Colors.white54, fontSize: 13)),
-                    const SizedBox(height: 20),
-                    const Divider(color: Colors.white12),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildTelemetryMini('Precisión Satelital', accuracy, Icons.satellite_alt),
-                        _buildTelemetryMini('Puntos Emitidos', '$_pointsSentCount', Icons.cloud_upload),
-                        if (_offlinePointsQueue.isNotEmpty)
-                          _buildTelemetryMini('En Cola Offline', '${_offlinePointsQueue.length}', Icons.cloud_off, isWarning: true),
-                      ],
-                    ),
-                  ],
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0x3310B981)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        speed,
+                        style: const TextStyle(
+                          color: Color(0xFF34D399),
+                          fontSize: 64,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Km/h',
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 24),
+                      const Divider(color: Colors.white12, height: 1),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetric('${_totalDistanceKm.toStringAsFixed(1)} km', 'Recorridos'),
+                          ),
+                          Container(width: 1, height: 34, color: Colors.white12),
+                          Expanded(
+                            child: _buildMetric(_formatElapsedTime(_secondsElapsed), 'Tiempo en ruta'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              const Spacer(),
+                const Spacer(),
 
-              // Report Incident Button
-              ElevatedButton.icon(
-                icon: const Icon(Icons.warning_amber_rounded, size: 24),
-                label: const Text('Reportar Incidencia con Foto', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  backgroundColor: const Color(0xFFEF4444),
-                  foregroundColor: Colors.white,
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                // Botones táctiles grandes y claros
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.warning_amber_rounded, size: 24),
+                  label: const Text('Reportar novedad', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 58),
+                    backgroundColor: const Color(0xFFEF4444),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => IncidentScreen(jornadaId: widget.jornadaId)),
+                    );
+                  },
                 ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => IncidentScreen(jornadaId: widget.jornadaId)),
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-
-              // Finish Journey Button
-              OutlinedButton.icon(
-                icon: const Icon(Icons.stop_circle_outlined, size: 24, color: Colors.white70),
-                label: const Text('Finalizar Jornada de Trabajo', style: TextStyle(fontSize: 16, color: Colors.white)),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  side: const BorderSide(color: Colors.white24),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.flag_rounded, size: 22, color: Colors.white70),
+                  label: const Text(
+                    'Finalizar ruta',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 58),
+                    side: const BorderSide(color: Color(0xFF334155), width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: _confirmFinishJourney,
                 ),
-                onPressed: () => _confirmFinishJourney(),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTelemetryMini(String label, String value, IconData icon, {bool isWarning = false}) {
+  Widget _buildMetric(String value, String label) {
     return Column(
       children: [
-        Icon(icon, size: 18, color: isWarning ? Colors.orangeAccent : const Color(0xFF34D399)),
-        const SizedBox(height: 4),
-        Text(value, style: TextStyle(color: isWarning ? Colors.orangeAccent : Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20)),
+        const SizedBox(height: 3),
+        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
       ],
     );
   }
@@ -360,28 +476,28 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text('¿Finalizar Jornada?', style: TextStyle(color: Colors.white)),
+        title: const Text('¿Terminaste la ruta?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Se detendrá el rastreo GPS y se registrará la culminación del recorrido en el servidor central.',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              'Se guardará el recorrido completado y se detendrá el GPS.',
+              style: TextStyle(color: Colors.white70, fontSize: 13.5),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: tonController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
               decoration: InputDecoration(
                 labelText: 'Toneladas recolectadas (opcional)',
-                labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                labelStyle: const TextStyle(color: Colors.white60, fontSize: 13),
                 hintText: 'Ej. 4.5',
                 hintStyle: const TextStyle(color: Colors.white24),
                 filled: true,
                 fillColor: const Color(0xFF0F172A),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -389,7 +505,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Continuar en ruta', style: TextStyle(color: Colors.white54)),
+            child: const Text('Seguir', style: TextStyle(color: Colors.white60)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
@@ -405,8 +521,9 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
               if (!ok) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('No se pudo finalizar la jornada. Revisa tu conexión e intenta de nuevo.'),
+                    content: Text('No se pudo finalizar la ruta. Revisa tu conexión e intenta de nuevo.'),
                     backgroundColor: Colors.redAccent,
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
                 return;
@@ -417,7 +534,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
               await _apiService.saveOfflineQueue(_offlinePointsQueue);
               if (mounted) Navigator.pop(context);
             },
-            child: const Text('Sí, Finalizar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('Finalizar', style: TextStyle(color: Color(0xFF052E16), fontWeight: FontWeight.w800)),
           ),
         ],
       ),
