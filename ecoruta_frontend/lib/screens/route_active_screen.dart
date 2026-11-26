@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -64,7 +64,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   bool _followUser = true;
   bool _satelliteMode = false;
   bool _showShadedZone = true;
-  int _secondsElapsed = 0;
+  final ValueNotifier<int> _secondsElapsedNotifier = ValueNotifier<int>(0);
   double _totalDistanceKm = 0.0;
   String? _gpsWarning;
   bool _canOpenSettings = false;
@@ -159,7 +159,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   void _startElapsedTimer() {
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
-        setState(() => _secondsElapsed++);
+        _secondsElapsedNotifier.value++;
       }
     });
   }
@@ -461,6 +461,7 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
   void dispose() {
     _positionSub?.cancel();
     _elapsedTimer?.cancel();
+    _secondsElapsedNotifier.dispose();
     super.dispose();
   }
 
@@ -645,38 +646,10 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                                 maxZoom: 19,
                                 userAgentPackageName: 'com.aseourbanoanaco.chofer',
                               ),
-                              if (_showShadedZone && _zonePolygon.length >= 3)
-                                PolygonLayer(
-                                  polygons: [
-                                    Polygon(
-                                      points: _zonePolygon,
-                                      color: const Color(0x281D4ED8),
-                                      borderColor: const Color(0xBB1D4ED8),
-                                      borderStrokeWidth: 2.2,
-                                    ),
-                                  ],
-                                ),
-                              PolylineLayer(
-                                polylines: [
-                                  if ((_streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints).length >= 2)
-                                    Polyline(
-                                      points: _streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints,
-                                      color: const Color(0xCCFFFFFF),
-                                      strokeWidth: 7.5,
-                                    ),
-                                  if ((_streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints).length >= 2)
-                                    Polyline(
-                                      points: _streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints,
-                                      color: const Color(0xFF1D4ED8),
-                                      strokeWidth: 4.8,
-                                    ),
-                                  if (_traveledTrail.length >= 2)
-                                    Polyline(
-                                      points: _traveledTrail,
-                                      color: const Color(0xFF15803D),
-                                      strokeWidth: 5.5,
-                                    ),
-                                ],
+                              _RouteOverlayLayer(
+                                zonePolygon: _showShadedZone ? _zonePolygon : const [],
+                                routeLine: _streetRoutePoints.length >= 2 ? _streetRoutePoints : _routeWaypoints,
+                                traveledTrail: _traveledTrail,
                               ),
                               MarkerLayer(
                                 markers: [
@@ -928,7 +901,12 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
                           Container(width: 1, height: 28, color: theme.dividerColor),
                           Expanded(child: _buildMetric(context, '${_totalDistanceKm.toStringAsFixed(1)} km', 'Recorridos')),
                           Container(width: 1, height: 28, color: theme.dividerColor),
-                          Expanded(child: _buildMetric(context, _formatElapsedTime(_secondsElapsed), 'Tiempo')),
+                          Expanded(
+                            child: ValueListenableBuilder<int>(
+                              valueListenable: _secondsElapsedNotifier,
+                              builder: (ctx, secs, _) => _buildMetric(ctx, _formatElapsedTime(secs), 'Tiempo'),
+                            ),
+                          ),
                         ],
                       ),
                       if (hasEstimado) ...[
@@ -1205,5 +1183,138 @@ class _RouteActiveScreenState extends State<RouteActiveScreen> {
         );
       }
     }
+  }
+}
+
+/// Capa vectorial propia (zona sombreada + ruta real por calles + recorrido GPS)
+/// que usa directamente `camera.latLngToScreenOffset` sin pasar por `workAcrossWorlds`.
+class _RouteOverlayLayer extends StatelessWidget {
+  final List<LatLng> zonePolygon;
+  final List<LatLng> routeLine;
+  final List<LatLng> traveledTrail;
+
+  const _RouteOverlayLayer({
+    required this.zonePolygon,
+    required this.routeLine,
+    required this.traveledTrail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    return IgnorePointer(
+      child: SizedBox.expand(
+        child: CustomPaint(
+          painter: _RouteOverlayPainter(
+            camera: camera,
+            zonePolygon: zonePolygon,
+            routeLine: routeLine,
+            traveledTrail: traveledTrail,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteOverlayPainter extends CustomPainter {
+  final MapCamera camera;
+  final List<LatLng> zonePolygon;
+  final List<LatLng> routeLine;
+  final List<LatLng> traveledTrail;
+
+  _RouteOverlayPainter({
+    required this.camera,
+    required this.zonePolygon,
+    required this.routeLine,
+    required this.traveledTrail,
+  });
+
+  List<Offset> _project(List<LatLng> points) {
+    final offsets = <Offset>[];
+    for (final p in points) {
+      final o = camera.latLngToScreenOffset(p);
+      if (o.dx.isFinite && o.dy.isFinite) {
+        offsets.add(o);
+      }
+    }
+    return offsets;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+
+    // 1. Zona asignada sombreada
+    if (zonePolygon.length >= 3) {
+      final pts = _project(zonePolygon);
+      if (pts.length >= 3) {
+        final path = Path()..addPolygon(pts, true);
+        final fillPaint = Paint()
+          ..color = const Color(0x2E1D4ED8)
+          ..style = PaintingStyle.fill;
+        final borderPaint = Paint()
+          ..color = const Color(0xCC1D4ED8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..strokeJoin = StrokeJoin.round;
+        canvas.drawPath(path, fillPaint);
+        canvas.drawPath(path, borderPaint);
+      }
+    }
+
+    // 2. Ruta asignada por calles (halo blanco + línea azul nítida)
+    if (routeLine.length >= 2) {
+      final pts = _project(routeLine);
+      if (pts.length >= 2) {
+        final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+        for (int i = 1; i < pts.length; i++) {
+          path.lineTo(pts[i].dx, pts[i].dy);
+        }
+        final haloPaint = Paint()
+          ..color = const Color(0xD9FFFFFF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 8.0
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+        final routePaint = Paint()
+          ..color = const Color(0xFF1D4ED8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.8
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+        canvas.drawPath(path, haloPaint);
+        canvas.drawPath(path, routePaint);
+      }
+    }
+
+    // 3. Recorrido real ya cubierto por el camión (verde)
+    if (traveledTrail.length >= 2) {
+      final pts = _project(traveledTrail);
+      if (pts.length >= 2) {
+        final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+        for (int i = 1; i < pts.length; i++) {
+          path.lineTo(pts[i].dx, pts[i].dy);
+        }
+        final trailPaint = Paint()
+          ..color = const Color(0xFF15803D)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5.5
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+        canvas.drawPath(path, trailPaint);
+      }
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _RouteOverlayPainter oldDelegate) {
+    return oldDelegate.camera != camera ||
+        oldDelegate.zonePolygon != zonePolygon ||
+        oldDelegate.routeLine != routeLine ||
+        oldDelegate.traveledTrail != traveledTrail;
   }
 }
