@@ -63,7 +63,7 @@ class PanelPermisosTests(TestCase):
         self.client.force_login(self.chofer_user)
         response = self.client.get(reverse('dashboard_chofer_gps'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Ruta Panel')
+        self.assertContains(response, 'Aseo Urbano Chofer')
 
     def test_chofer_no_puede_eliminar_vehiculos(self):
         self.client.force_login(self.chofer_user)

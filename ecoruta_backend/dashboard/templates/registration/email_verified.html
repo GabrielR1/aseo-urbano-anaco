@@ -12,19 +12,19 @@
 
 {% block content %}
 {% if verificado %}
-<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 16px; margin-bottom: 20px; color: #166534; font-size: 14px; line-height: 1.5;">
-    <i class="fa-solid fa-circle-check" style="font-size: 26px; display: block; margin-bottom: 8px; color: #15803d;"></i>
-    <strong>{{ email }}</strong> verificado para el usuario <strong>@{{ username }}</strong>.<br>
-    Ya podrás recuperar tu contraseña por correo si alguna vez la olvidas.
+<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px 16px; margin-bottom: 20px; color: #166534; font-size: 14px; line-height: 1.55;">
+    <i class="fa-solid fa-circle-check" style="font-size: 30px; display: block; margin-bottom: 8px; color: #15803d;"></i>
+    <strong>{{ email }}</strong> verificado para <strong>@{{ username }}</strong>.<br>
+    Ya puedes cerrar esta ventana y usar la <strong>App Aseo Urbano Chofer</strong> con normalidad.
 </div>
 {% else %}
-<div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px; margin-bottom: 20px; color: #991b1b; font-size: 14px; line-height: 1.5;">
-    <i class="fa-solid fa-circle-exclamation" style="font-size: 26px; display: block; margin-bottom: 8px; color: #dc2626;"></i>
+<div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 18px 16px; margin-bottom: 20px; color: #991b1b; font-size: 14px; line-height: 1.55;">
+    <i class="fa-solid fa-circle-exclamation" style="font-size: 30px; display: block; margin-bottom: 8px; color: #dc2626;"></i>
     Pide al supervisor que reenvíe el correo de verificación desde la sección <strong>Conductores</strong>.
 </div>
 {% endif %}
 
-<a href="{% url 'login' %}" class="btn-submit" style="display: block; text-decoration: none; box-sizing: border-box;">
-    Ir al inicio de sesión
+<a href="{% url 'login' %}" class="link-text" style="margin-top: 4px; font-weight: 600;">
+    <i class="fa-solid fa-building-shield"></i> Acceso administrativo (Oficina)
 </a>
 {% endblock %}
