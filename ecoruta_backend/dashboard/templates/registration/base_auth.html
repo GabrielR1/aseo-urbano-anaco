@@ -42,12 +42,20 @@
             background: #ffffff;
             border: 1px solid var(--card-border);
             border-radius: 12px;
-            padding: 40px 36px;
+            padding: 36px 32px;
             width: 100%;
             max-width: 410px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
             text-align: center;
             position: relative;
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 14px;
+            }
+            .auth-card {
+                padding: 28px 20px;
+            }
         }
 
         .auth-card::before {

@@ -395,3 +395,19 @@ class PanelPermisosTests(TestCase):
         )
         self.assertEqual(resp_unknown.status_code, 200)
         self.assertEqual(len(mail.outbox), 0)
+
+        # Confirmar que la página de cambio de contraseña usa nuestra plantilla limpia con ojo (no Django Admin)
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        uid = urlsafe_base64_encode(force_bytes(creado.pk))
+        reset_token = default_token_generator.make_token(creado)
+        resp_confirm = self.client.get(
+            reverse('password_reset_confirm', args=[uid, reset_token]),
+            follow=True,
+        )
+        self.assertEqual(resp_confirm.status_code, 200)
+        self.assertContains(resp_confirm, 'toggle-pass-btn')
+        self.assertContains(resp_confirm, 'logo_institucional.png')
+        self.assertNotContains(resp_confirm, 'Panel de Administración del Sistema')

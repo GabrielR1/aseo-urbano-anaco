@@ -119,7 +119,7 @@ ROOT_URLCONF = 'EcoRuta.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_TEMPLATES_DIR],
+        'DIRS': [BASE_TEMPLATES_DIR, BASE_DIR / 'dashboard' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
