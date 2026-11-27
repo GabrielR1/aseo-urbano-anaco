@@ -39,6 +39,10 @@ class Usuario(AbstractUser):
         default=ADMIN,
         verbose_name="Rol en el Sistema"
     )
+    email_verificado = models.BooleanField(
+        default=False,
+        verbose_name="Correo Verificado"
+    )
 
     class Meta:
         verbose_name = "Usuario"

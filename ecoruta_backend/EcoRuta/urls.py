@@ -8,7 +8,7 @@ from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from dashboard.views import chofer_gps_movil
-from security.views import EcoRutaLoginView, api_password_reset_request
+from security.views import EcoRutaLoginView, api_password_reset_request, verificar_correo_view
 
 admin.site.site_header = "Aseo Urbano Anaco"
 admin.site.site_title = "Administración - Aseo Urbano Anaco"
@@ -19,6 +19,7 @@ urlpatterns = [
     path('chofer/', chofer_gps_movil, name='chofer_movil_directo'),
     path('admin/', admin.site.urls),
     path('accounts/login/', EcoRutaLoginView.as_view(), name='login'),
+    path('accounts/verificar-correo/<str:token>/', verificar_correo_view, name='verificar_correo'),
     path('accounts/', include('django.contrib.auth.urls')),
     path('dashboard/', include('dashboard.urls')),
     path('administracion/', include('administracion.urls')),

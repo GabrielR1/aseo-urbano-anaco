@@ -336,7 +336,21 @@ class PanelPermisosTests(TestCase):
         self.assertRedirects(resp_create, reverse('dashboard_conductores'))
         creado = Usuario.objects.get(username='chofercorreo')
         self.assertEqual(creado.email, 'pedro.silva@example.com')
+        self.assertFalse(creado.email_verificado)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('/accounts/verificar-correo/', mail.outbox[0].body)
 
+        # Confirmar enlace de verificación marca email_verificado=True
+        from security.views import generar_token_verificacion_correo
+
+        token = generar_token_verificacion_correo(creado)
+        resp_verify = self.client.get(reverse('verificar_correo', args=[token]))
+        self.assertEqual(resp_verify.status_code, 200)
+        creado.refresh_from_db()
+        self.assertTrue(creado.email_verificado)
+
+        # Al cambiar de correo se reinicia email_verificado y envía nueva verificación
+        mail.outbox.clear()
         chofer_obj = Chofer.objects.get(usuario=creado)
         resp_edit = self.client.post(
             reverse('chofer_editar', args=[chofer_obj.pk]),
@@ -351,6 +365,14 @@ class PanelPermisosTests(TestCase):
         self.assertRedirects(resp_edit, reverse('dashboard_conductores'))
         creado.refresh_from_db()
         self.assertEqual(creado.email, 'pedro.nuevo@example.com')
+        self.assertFalse(creado.email_verificado)
+        self.assertEqual(len(mail.outbox), 1)
+
+        # Reenviar verificación manualmente
+        mail.outbox.clear()
+        resp_resend = self.client.post(reverse('chofer_reenviar_verificacion', args=[chofer_obj.pk]))
+        self.assertRedirects(resp_resend, reverse('dashboard_conductores'))
+        self.assertEqual(len(mail.outbox), 1)
 
         # Solicitud desde la app móvil (sin sesión) envía correo real con enlace de recuperación
         self.client.logout()

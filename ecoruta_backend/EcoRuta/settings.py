@@ -256,7 +256,13 @@ LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
-# Correo electrónico (SMTP real cuando EMAIL_HOST está configurado; consola en desarrollo local)
+# Correo electrónico:
+# 1) Webhook HTTPS (recomendado en Render Free donde se bloquean puertos SMTP 25/465/587)
+# 2) SMTP directo (si EMAIL_HOST está configurado en servidores sin bloqueo SMTP)
+# 3) Consola en desarrollo local
+EMAIL_WEBHOOK_URL = os.getenv('EMAIL_WEBHOOK_URL', '').strip()
+EMAIL_WEBHOOK_SECRET = os.getenv('EMAIL_WEBHOOK_SECRET', '').strip()
+EMAIL_SENDER_NAME = os.getenv('EMAIL_SENDER_NAME', 'Aseo Urbano Anaco').strip()
 EMAIL_HOST = os.getenv('EMAIL_HOST', '').strip()
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '').strip()
@@ -268,7 +274,9 @@ DEFAULT_FROM_EMAIL = os.getenv(
     'DEFAULT_FROM_EMAIL',
     EMAIL_HOST_USER or 'Aseo Urbano Anaco <no-reply@aseourbanoanaco.gob.ve>',
 )
-if EMAIL_HOST and not RUNNING_TESTS:
+if EMAIL_WEBHOOK_URL and not RUNNING_TESTS:
+    EMAIL_BACKEND = 'EcoRuta.email_backends.WebhookEmailBackend'
+elif EMAIL_HOST and not RUNNING_TESTS:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from security.models import Usuario
 from security.permissions import admin_required
+from security.views import enviar_correo_verificacion
 
 from .forms import RutaForm, VehiculoForm
 from .models import Chofer, RegistroAuditoria, Ruta, Vehiculo
@@ -152,10 +153,25 @@ def chofer_crear(request):
                 first_name=first_name,
                 last_name=last_name,
                 rol=Usuario.CHOFER,
+                email_verificado=False,
             )
             Chofer.objects.create(usuario=user, licencia=licencia, telefono=telefono)
             registrar_auditoria(request.user, 'CREAR', 'Conductor / Chofer', f'Se creó el perfil de chofer para el usuario "{username}"')
-            messages.success(request, f'Conductor "{username}" registrado exitosamente.')
+            if email:
+                try:
+                    enviar_correo_verificacion(request, user)
+                    messages.success(
+                        request,
+                        f'Conductor "{username}" registrado. Se envió un enlace de verificación a {email}.',
+                    )
+                except Exception:
+                    logger.exception('No se pudo enviar verificación al registrar %s', username)
+                    messages.warning(
+                        request,
+                        f'Conductor "{username}" registrado, pero no se pudo enviar el correo de verificación. Verifica la configuración de correo y usa "Reenviar".',
+                    )
+            else:
+                messages.success(request, f'Conductor "{username}" registrado exitosamente.')
     return redirect('dashboard_conductores')
 
 
@@ -192,13 +208,47 @@ def chofer_editar(request, pk):
         chofer.save(update_fields=['licencia', 'telefono', 'actualizado_en'])
 
         user = chofer.usuario
+        email_cambio = (user.email or '').strip().lower() != email
         user.first_name = first_name
         user.last_name = last_name
         user.email = email
-        user.save(update_fields=['first_name', 'last_name', 'email'])
+        if email_cambio or not email:
+            user.email_verificado = False
+        user.save(update_fields=['first_name', 'last_name', 'email', 'email_verificado'])
 
         registrar_auditoria(request.user, 'MODIFICAR', 'Conductor / Chofer', f'Se modificaron los datos del conductor "{user.username}"')
-        messages.success(request, f'Datos del conductor "{user.username}" actualizados.')
+        if email and email_cambio:
+            try:
+                enviar_correo_verificacion(request, user)
+                messages.success(
+                    request,
+                    f'Datos actualizados. Se envió un enlace de verificación a {email}.',
+                )
+            except Exception:
+                logger.exception('No se pudo enviar verificación al actualizar %s', user.username)
+                messages.warning(
+                    request,
+                    f'Datos actualizados, pero no se pudo enviar el correo de verificación a {email}.',
+                )
+        else:
+            messages.success(request, f'Datos del conductor "{user.username}" actualizados.')
+    return redirect('dashboard_conductores')
+
+
+@admin_required
+@require_POST
+def chofer_reenviar_verificacion(request, pk):
+    chofer = get_object_or_404(Chofer.objects.select_related('usuario'), pk=pk)
+    user = chofer.usuario
+    if not (user.email or '').strip():
+        messages.error(request, f'El conductor "{user.username}" no tiene un correo registrado.')
+        return redirect('dashboard_conductores')
+    try:
+        enviar_correo_verificacion(request, user)
+        messages.success(request, f'Enlace de verificación reenviado a {user.email}.')
+    except Exception:
+        logger.exception('Error reenviando correo de verificación a %s', user.email)
+        messages.error(request, 'No se pudo enviar el correo de verificación. Revisa el servicio de correo en Render.')
     return redirect('dashboard_conductores')
 
 

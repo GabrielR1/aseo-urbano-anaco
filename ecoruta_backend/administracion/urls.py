@@ -10,5 +10,6 @@ urlpatterns = [
     path('vehiculos/<int:pk>/eliminar/', views.vehiculo_eliminar, name='vehiculo_eliminar'),
     path('choferes/crear/', views.chofer_crear, name='chofer_crear'),
     path('choferes/<int:pk>/editar/', views.chofer_editar, name='chofer_editar'),
+    path('choferes/<int:pk>/reenviar-verificacion/', views.chofer_reenviar_verificacion, name='chofer_reenviar_verificacion'),
     path('choferes/<int:pk>/eliminar/', views.chofer_eliminar, name='chofer_eliminar'),
 ]
