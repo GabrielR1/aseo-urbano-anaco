@@ -33,10 +33,10 @@
         <table class="modern-table" id="choferesTable">
             <thead>
                 <tr>
-                    <th>Usuario / Nombre</th>
-                    <th>Nº de Licencia</th>
-                    <th>Teléfono de Contacto</th>
-                    <th>Rol en Sistema</th>
+                    <th>Conductor</th>
+                    <th>Licencia</th>
+                    <th>Correo y Teléfono</th>
+                    <th>Rol</th>
                     <th style="text-align: center;">Acciones</th>
                 </tr>
             </thead>
@@ -58,28 +58,36 @@
                     </td>
                     <td>
                         <span style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; font-family: monospace;">
-                            <i class="fa-solid fa-address-card" style="margin-right: 4px;"></i> {{ c.licencia }}
+                            {{ c.licencia }}
                         </span>
                     </td>
                     <td>
-                        <div style="color: var(--text-secondary); font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-phone" style="color: var(--text-muted); font-size: 11px;"></i>
-                            {{ c.telefono|default:"No registrado" }}
+                        <div style="font-size: 13px; color: var(--text-main); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-regular fa-envelope" style="color: var(--text-muted); font-size: 12px;"></i>
+                            {% if c.usuario.email %}
+                                {{ c.usuario.email }}
+                            {% else %}
+                                <span style="color: #b45309; font-size: 12px; font-weight: 700;">Sin correo registrado</span>
+                            {% endif %}
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 12px; display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                            <i class="fa-solid fa-phone" style="font-size: 10.5px;"></i>
+                            {{ c.telefono|default:"Sin teléfono" }}
                         </div>
                     </td>
                     <td>
                         <span style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-                            <span class="pulsing-badge"></span> Chofer / Operador
+                            <span class="pulsing-badge"></span> Chofer
                         </span>
                     </td>
                     <td style="text-align: center;">
                         <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
-                            <button onclick="abrirModalEditarChofer({{ c.id }}, '{{ c.usuario.username|escapejs }}', '{{ c.usuario.first_name|escapejs }}', '{{ c.usuario.last_name|escapejs }}', '{{ c.licencia|escapejs }}', '{{ c.telefono|escapejs }}')" 
-                                    class="btn-action-icon" style="background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8;" title="Modificar Datos">
+                            <button onclick="abrirModalEditarChofer({{ c.id }}, '{{ c.usuario.username|escapejs }}', '{{ c.usuario.first_name|escapejs }}', '{{ c.usuario.last_name|escapejs }}', '{{ c.usuario.email|default:''|escapejs }}', '{{ c.licencia|escapejs }}', '{{ c.telefono|escapejs }}')" 
+                                    class="btn-action-icon" style="background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8;" title="Editar conductor">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
                             <button onclick="abrirModalEliminarChofer({{ c.id }}, '{{ c.usuario.username|escapejs }}')" 
-                                    class="btn-action-icon" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;" title="Eliminar Conductor">
+                                    class="btn-action-icon" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;" title="Eliminar conductor">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
@@ -111,73 +119,87 @@
         var content = `
             <form action="{% url 'chofer_crear' %}" method="post" style="text-align: left;">
                 {% csrf_token %}
-                <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre de Usuario (Para Login Móvil):</label>
-                    <input type="text" name="username" class="form-input" placeholder="Ej. chofer1" required>
-                </div>
-                <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Contraseña de Acceso:</label>
-                    <input type="password" name="password" class="form-input" placeholder="Ej. chofer123" value="chofer123" required>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div>
-                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre:</label>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Usuario</label>
+                        <input type="text" name="username" class="form-input" placeholder="Ej. chofer4" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Contraseña inicial</label>
+                        <input type="password" name="password" class="form-input" placeholder="Mín. 6 caracteres" required>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre</label>
                         <input type="text" name="first_name" class="form-input" placeholder="Ej. Carlos">
                     </div>
                     <div>
-                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Apellido:</label>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Apellido</label>
                         <input type="text" name="last_name" class="form-input" placeholder="Ej. Pérez">
                     </div>
                 </div>
-                <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Número de Licencia de Conducir:</label>
-                    <input type="text" name="licencia" class="form-input" placeholder="Ej. LIC-987654" required>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Correo electrónico <span style="font-weight:500; color:var(--text-muted);">(para recuperar contraseña)</span></label>
+                    <input type="email" name="email" class="form-input" placeholder="Ej. carlos.perez@gmail.com" required>
                 </div>
-                <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Teléfono Celular / WhatsApp:</label>
-                    <input type="text" name="telefono" class="form-input" placeholder="Ej. +58 412-1234567">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Licencia</label>
+                        <input type="text" name="licencia" class="form-input" placeholder="Ej. V-18452104-5TA" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Teléfono</label>
+                        <input type="text" name="telefono" class="form-input" placeholder="Ej. 0414-1234567">
+                    </div>
                 </div>
-                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 14px; font-size: 15px;">
-                    <i class="fa-solid fa-user-check"></i> Registrar Conductor en el Sistema
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
+                    Registrar conductor
                 </button>
             </form>
         `;
-        openModal('<i class="fa-solid fa-user-plus" style="color: var(--accent-green-light);"></i> Guardar Nuevo Conductor', content);
+        openModal('Nuevo conductor', content);
     }
 
-    function abrirModalEditarChofer(id, username, firstName, lastName, licencia, telefono) {
+    function abrirModalEditarChofer(id, username, firstName, lastName, email, licencia, telefono) {
         var actionUrl = "{% url 'chofer_editar' 0 %}".replace('0', id);
         var content = `
             <form action="${actionUrl}" method="post" style="text-align: left;">
                 {% csrf_token %}
-                <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-muted); font-size: 13px;">Usuario Registrado (No editable):</label>
-                    <input type="text" class="form-input" value="${escapeHtml(username)}" disabled style="opacity: 0.6; cursor: not-allowed;">
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-muted); font-size: 13px;">Usuario</label>
+                    <input type="text" class="form-input" value="${escapeHtml(username)}" disabled style="opacity: 0.65; cursor: not-allowed;">
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div>
-                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre:</label>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Nombre</label>
                         <input type="text" name="first_name" class="form-input" value="${escapeHtml(firstName)}">
                     </div>
                     <div>
-                        <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Apellido:</label>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Apellido</label>
                         <input type="text" name="last_name" class="form-input" value="${escapeHtml(lastName)}">
                     </div>
                 </div>
-                <div style="margin-bottom: 14px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Número de Licencia:</label>
-                    <input type="text" name="licencia" class="form-input" value="${escapeHtml(licencia)}" required>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Correo electrónico <span style="font-weight:500; color:var(--text-muted);">(para recuperar contraseña)</span></label>
+                    <input type="email" name="email" class="form-input" value="${escapeHtml(email)}" placeholder="Ej. conductor@gmail.com">
                 </div>
-                <div style="margin-bottom: 24px;">
-                    <label style="display:block; margin-bottom: 6px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Teléfono:</label>
-                    <input type="text" name="telefono" class="form-input" value="${escapeHtml(telefono)}">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Licencia</label>
+                        <input type="text" name="licencia" class="form-input" value="${escapeHtml(licencia)}" required>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom: 5px; font-weight: 700; color: var(--text-secondary); font-size: 13px;">Teléfono</label>
+                        <input type="text" name="telefono" class="form-input" value="${escapeHtml(telefono)}">
+                    </div>
                 </div>
-                <button type="submit" class="btn-modern" style="width:100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-size: 15px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);">
-                    <i class="fa-solid fa-pen-to-square"></i> Actualizar Ficha de Conductor
+                <button type="submit" class="btn-modern btn-primary-green" style="width:100%; padding: 13px; font-size: 14.5px; font-weight: 800;">
+                    Guardar cambios
                 </button>
             </form>
         `;
-        openModal('<i class="fa-solid fa-user-pen" style="color: #60a5fa;"></i> Modificar Datos de Conductor', content);
+        openModal('Editar conductor', content);
     }
 
     function abrirModalEliminarChofer(id, username) {

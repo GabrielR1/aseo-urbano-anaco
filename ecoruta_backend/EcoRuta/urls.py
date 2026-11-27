@@ -8,7 +8,7 @@ from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from dashboard.views import chofer_gps_movil
-from security.views import EcoRutaLoginView
+from security.views import EcoRutaLoginView, api_password_reset_request
 
 admin.site.site_header = "Aseo Urbano Anaco"
 admin.site.site_title = "Administración - Aseo Urbano Anaco"
@@ -26,6 +26,7 @@ urlpatterns = [
     
     # Auth Endpoints (Token y JWT)
     path('api/auth/login/', obtain_auth_token, name='api_token_auth'),
+    path('api/auth/password-reset/', api_password_reset_request, name='api_password_reset'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     

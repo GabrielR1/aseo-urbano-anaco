@@ -96,57 +96,39 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _openServerConfig() {
-    final serverController = TextEditingController(text: ApiService.baseUrl);
+  Future<void> _openPasswordResetDialog() async {
+    String emailValue = '';
     final colors = Theme.of(context).colorScheme;
-    showDialog(
+    final submittedEmail = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.cloud_outlined, color: colors.primary, size: 22),
-            const SizedBox(width: 8),
-            const Text('Conexión al servidor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
+        title: const Text('Recuperar contraseña', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Elige un servidor o escribe una dirección:',
-              style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7), fontSize: 12.5),
+            const Text(
+              'Ingresa el correo registrado en tu cuenta y te enviaremos un enlace para crear una nueva contraseña.',
+              style: TextStyle(fontSize: 13.5),
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ActionChip(
-                  label: const Text('Nube (Render)', style: TextStyle(fontSize: 12)),
-                  onPressed: () => serverController.text = ApiService.defaultProductionUrl,
-                ),
-                ActionChip(
-                  label: const Text('Local (PC)', style: TextStyle(fontSize: 12)),
-                  onPressed: () => serverController.text = ApiService.defaultLocalUrl,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: serverController,
-              style: const TextStyle(fontSize: 13.5),
+            const SizedBox(height: 14),
+            TextFormField(
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              onChanged: (v) => emailValue = v,
               decoration: InputDecoration(
+                labelText: 'Correo electrónico',
+                hintText: 'tucorreo@gmail.com',
+                prefixIcon: Icon(Icons.email_outlined, color: colors.primary),
                 filled: true,
-                hintText: ApiService.defaultProductionUrl,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
@@ -154,28 +136,120 @@ class _LoginScreenState extends State<LoginScreen> {
               backgroundColor: colors.primary,
               foregroundColor: colors.onPrimary,
             ),
-            onPressed: () async {
-              final newUrl = serverController.text.trim();
-              if (newUrl.isNotEmpty) {
-                await ApiService().saveServerUrl(newUrl);
-                if (mounted) setState(() {});
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Servidor configurado: ${ApiService.serverLabel}'),
-                      backgroundColor: const Color(0xFF15803D),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.of(ctx).pop(emailValue.trim()),
+            child: const Text('Enviar enlace', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
-    ).whenComplete(serverController.dispose);
+    );
+
+    if (!mounted || submittedEmail == null || submittedEmail.isEmpty) return;
+
+    final api = ApiService();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Enviando enlace de recuperación...'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    final ok = await api.requestPasswordReset(submittedEmail);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña.'
+              : (api.lastError ?? 'No se pudo enviar el correo de recuperación.'),
+        ),
+        backgroundColor: ok ? const Color(0xFF15803D) : Colors.red.shade700,
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _openServerConfig() async {
+    String urlValue = ApiService.baseUrl;
+    final colors = Theme.of(context).colorScheme;
+    final newUrl = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.cloud_outlined, color: colors.primary, size: 22),
+              const SizedBox(width: 8),
+              const Text('Conexión al servidor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Elige un servidor o escribe una dirección:',
+                style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7), fontSize: 12.5),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ActionChip(
+                    label: const Text('Nube (Render)', style: TextStyle(fontSize: 12)),
+                    onPressed: () => setDialogState(() => urlValue = ApiService.defaultProductionUrl),
+                  ),
+                  ActionChip(
+                    label: const Text('Local (PC)', style: TextStyle(fontSize: 12)),
+                    onPressed: () => setDialogState(() => urlValue = ApiService.defaultLocalUrl),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: ValueKey(urlValue),
+                initialValue: urlValue,
+                onChanged: (v) => urlValue = v,
+                style: const TextStyle(fontSize: 13.5),
+                decoration: InputDecoration(
+                  filled: true,
+                  hintText: ApiService.defaultProductionUrl,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.primary,
+                foregroundColor: colors.onPrimary,
+              ),
+              onPressed: () => Navigator.of(ctx).pop(urlValue.trim()),
+              child: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || newUrl == null || newUrl.isEmpty) return;
+    await ApiService().saveServerUrl(newUrl);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Servidor configurado: ${ApiService.serverLabel}'),
+        backgroundColor: const Color(0xFF15803D),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -347,6 +421,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                         'Entrar',
                                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                                       ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _isLoading ? null : _openPasswordResetDialog,
+                              child: Text(
+                                '¿Olvidaste tu contraseña?',
+                                style: TextStyle(
+                                  color: colors.primary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                             if (_showSlowServerHint) ...[

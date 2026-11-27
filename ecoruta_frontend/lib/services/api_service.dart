@@ -130,6 +130,38 @@ class ApiService {
     }
   }
 
+  Future<bool> requestPasswordReset(String email) async {
+    lastError = null;
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/password-reset/'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email.trim().toLowerCase()}),
+          )
+          .timeout(_timeout);
+      if (response.statusCode == 200) {
+        return true;
+      }
+      try {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map && data['detail'] != null) {
+          lastError = data['detail'].toString();
+          return false;
+        }
+      } catch (_) {}
+      lastError = 'No se pudo enviar el correo de recuperación.';
+      return false;
+    } on TimeoutException {
+      lastError = 'El servidor tardó demasiado en responder. Intenta nuevamente.';
+      return false;
+    } catch (e) {
+      debugPrint('Error solicitando recuperación de contraseña: $e');
+      lastError = 'No se pudo conectar con el servidor. Revisa tu conexión.';
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     sessionExpired = false;
     try {

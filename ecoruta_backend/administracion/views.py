@@ -1,6 +1,8 @@
 import logging
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
@@ -117,30 +119,43 @@ def vehiculo_eliminar(request, pk):
 def chofer_crear(request):
     if request.method == 'POST':
         username = (request.POST.get('username') or '').strip()
+        email = (request.POST.get('email') or '').strip().lower()
         password = request.POST.get('password') or 'chofer123'
         first_name = (request.POST.get('first_name') or '').strip()
         last_name = (request.POST.get('last_name') or '').strip()
         licencia = (request.POST.get('licencia') or '').strip()
         telefono = (request.POST.get('telefono') or '').strip()
 
-        if username and licencia:
-            if Usuario.objects.filter(username=username).exists():
-                messages.error(request, f'El usuario "{username}" ya existe.')
-            elif Chofer.objects.filter(licencia=licencia).exists():
-                messages.error(request, f'La licencia "{licencia}" ya está registrada.')
-            else:
-                user = Usuario.objects.create_user(
-                    username=username,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name,
-                    rol=Usuario.CHOFER,
-                )
-                Chofer.objects.create(usuario=user, licencia=licencia, telefono=telefono)
-                registrar_auditoria(request.user, 'CREAR', 'Conductor / Chofer', f'Se creó el perfil de chofer para el usuario "{username}"')
-                messages.success(request, f'¡Chofer/Conductor "{username}" registrado exitosamente!')
-        else:
+        if not (username and licencia):
             messages.error(request, 'Por favor completa los campos requeridos de usuario y licencia.')
+            return redirect('dashboard_conductores')
+
+        if email:
+            try:
+                validate_email(email)
+            except ValidationError:
+                messages.error(request, 'El correo electrónico ingresado no es válido.')
+                return redirect('dashboard_conductores')
+            if Usuario.objects.filter(email__iexact=email).exists():
+                messages.error(request, f'El correo "{email}" ya está registrado en otra cuenta.')
+                return redirect('dashboard_conductores')
+
+        if Usuario.objects.filter(username=username).exists():
+            messages.error(request, f'El usuario "{username}" ya existe.')
+        elif Chofer.objects.filter(licencia=licencia).exists():
+            messages.error(request, f'La licencia "{licencia}" ya está registrada.')
+        else:
+            user = Usuario.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                rol=Usuario.CHOFER,
+            )
+            Chofer.objects.create(usuario=user, licencia=licencia, telefono=telefono)
+            registrar_auditoria(request.user, 'CREAR', 'Conductor / Chofer', f'Se creó el perfil de chofer para el usuario "{username}"')
+            messages.success(request, f'Conductor "{username}" registrado exitosamente.')
     return redirect('dashboard_conductores')
 
 
@@ -152,6 +167,7 @@ def chofer_editar(request, pk):
         telefono = (request.POST.get('telefono') or '').strip()
         first_name = (request.POST.get('first_name') or '').strip()
         last_name = (request.POST.get('last_name') or '').strip()
+        email = (request.POST.get('email') or '').strip().lower()
 
         if not licencia:
             messages.error(request, 'La licencia no puede estar vacía.')
@@ -161,6 +177,16 @@ def chofer_editar(request, pk):
             messages.error(request, f'La licencia "{licencia}" ya está asignada a otro conductor.')
             return redirect('dashboard_conductores')
 
+        if email:
+            try:
+                validate_email(email)
+            except ValidationError:
+                messages.error(request, 'El correo electrónico ingresado no es válido.')
+                return redirect('dashboard_conductores')
+            if Usuario.objects.filter(email__iexact=email).exclude(pk=chofer.usuario_id).exists():
+                messages.error(request, f'El correo "{email}" ya está registrado en otra cuenta.')
+                return redirect('dashboard_conductores')
+
         chofer.licencia = licencia
         chofer.telefono = telefono
         chofer.save(update_fields=['licencia', 'telefono', 'actualizado_en'])
@@ -168,10 +194,11 @@ def chofer_editar(request, pk):
         user = chofer.usuario
         user.first_name = first_name
         user.last_name = last_name
-        user.save(update_fields=['first_name', 'last_name'])
+        user.email = email
+        user.save(update_fields=['first_name', 'last_name', 'email'])
 
         registrar_auditoria(request.user, 'MODIFICAR', 'Conductor / Chofer', f'Se modificaron los datos del conductor "{user.username}"')
-        messages.success(request, f'¡Datos del conductor "{user.username}" modificados con éxito!')
+        messages.success(request, f'Datos del conductor "{user.username}" actualizados.')
     return redirect('dashboard_conductores')
 
 

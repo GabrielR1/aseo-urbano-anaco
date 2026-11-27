@@ -316,3 +316,60 @@ class PanelPermisosTests(TestCase):
             },
         )
         self.assertTrue(Jornada.objects.filter(ruta=otra_ruta).exists())
+
+    def test_crear_y_editar_chofer_con_correo_y_recuperacion_api(self):
+        from django.core import mail
+
+        self.client.force_login(self.admin)
+        resp_create = self.client.post(
+            reverse('chofer_crear'),
+            {
+                'username': 'chofercorreo',
+                'password': 'password123',
+                'first_name': 'Pedro',
+                'last_name': 'Silva',
+                'email': 'pedro.silva@example.com',
+                'licencia': 'LIC-CORREO-1',
+                'telefono': '0414-0001122',
+            },
+        )
+        self.assertRedirects(resp_create, reverse('dashboard_conductores'))
+        creado = Usuario.objects.get(username='chofercorreo')
+        self.assertEqual(creado.email, 'pedro.silva@example.com')
+
+        chofer_obj = Chofer.objects.get(usuario=creado)
+        resp_edit = self.client.post(
+            reverse('chofer_editar', args=[chofer_obj.pk]),
+            {
+                'first_name': 'Pedro',
+                'last_name': 'Silva',
+                'email': 'pedro.nuevo@example.com',
+                'licencia': 'LIC-CORREO-1',
+                'telefono': '0414-0001122',
+            },
+        )
+        self.assertRedirects(resp_edit, reverse('dashboard_conductores'))
+        creado.refresh_from_db()
+        self.assertEqual(creado.email, 'pedro.nuevo@example.com')
+
+        # Solicitud desde la app móvil (sin sesión) envía correo real con enlace de recuperación
+        self.client.logout()
+        mail.outbox.clear()
+        resp_reset = self.client.post(
+            reverse('api_password_reset'),
+            data='{"email": "pedro.nuevo@example.com"}',
+            content_type='application/json',
+        )
+        self.assertEqual(resp_reset.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('/accounts/reset/', mail.outbox[0].body)
+
+        # Correo inexistente devuelve 200 sin filtrar existencia y sin enviar correo
+        mail.outbox.clear()
+        resp_unknown = self.client.post(
+            reverse('api_password_reset'),
+            data='{"email": "noexiste@example.com"}',
+            content_type='application/json',
+        )
+        self.assertEqual(resp_unknown.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
